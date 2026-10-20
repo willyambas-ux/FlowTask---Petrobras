@@ -92,8 +92,10 @@ function plhData_(v) {
   var s = String(v).split(/[\r\n]/)[0].trim();
   var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
   if (!m) return null;
-  var a = Number(m[3]); if (a < 100) a += 2000;
-  var d = new Date(a, Number(m[2]) - 1, Number(m[1]));
+  var dia = Number(m[1]), mes = Number(m[2]), a = Number(m[3]);
+  if (!dia || !mes || mes > 12 || dia > 31) return null; // ex.: 0/0/0, 00/01/00
+  if (a < 100) a += 2000;
+  var d = new Date(a, mes - 1, dia);
   return isNaN(d) ? null : d;
 }
 
@@ -179,7 +181,8 @@ function plhLerJaquetas_(ss) {
   var ix = {
     uf: col('uf'), plataforma: col('plataforma'), acesso: col('acesso'),
     zona: col('zona', 'inspecao'), nivel: col('nivel'), plano: col('plano'),
-    statusPlano: col('status do plano'), perDias: col('periodicidade (dias)', 'periodicidade dias'),
+    statusPlano: col('status do plano', 'status'),
+    perDias: col('periodicidade (dias)', 'periodicidade [dias]', 'periodicidade dias'),
     ordem: col('ordem'), ultima: col('ultima inspecao'), lote: col('lote de controle', 'lote inspecao'),
     du: col('du/rl aplicado', 'aplicar du ou rl'), proxima: col('proxima inspecao'),
     proxOS: col('proxima os', 'proxima os.'), juntas: col('juntas criticas'),
@@ -189,11 +192,19 @@ function plhLerJaquetas_(ss) {
     info.erro = 'Cabeçalho não confere (Plataforma, Nível e Última inspeção são obrigatórios)';
     return { info: info, rows: [] };
   }
-  var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
-  var rows = [];
+  // "-", "—" e "0/0/0" na planilha de controle significam "vazio"
+  var g = function (r, k) {
+    if (ix[k] < 0) return '';
+    var v = r[ix[k]];
+    if (typeof v === 'string' && /^\s*([-—–]+|0\/0\/0+)\s*$/.test(v)) return '';
+    return v;
+  };
+  var rows = [], ignoradas = 0;
   for (var i = 1; i < vals.length; i++) {
     var r = vals[i];
     if (!plhTxt_(g(r, 'plataforma'))) continue;
+    // Sem plano e sem nenhuma data: plataforma sem inspeção de jaqueta (ex.: PAG-2, de concreto)
+    if (!plhTxt_(g(r, 'plano')) && !plhData_(g(r, 'ultima')) && !plhData_(g(r, 'proxima'))) { ignoradas++; continue; }
     var zona = plhTxt_(g(r, 'zona')), niv = plhTxt_(g(r, 'nivel'));
     rows.push({
       UF: plhTxt_(g(r, 'uf')), Plataforma: plhTxt_(g(r, 'plataforma')), Acesso: plhTxt_(g(r, 'acesso')),
@@ -206,6 +217,7 @@ function plhLerJaquetas_(ss) {
     });
   }
   info.ok = true;
+  info.ignoradas = ignoradas;
   return { info: info, rows: rows };
 }
 
