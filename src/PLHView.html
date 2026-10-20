@@ -38,6 +38,41 @@
 .plh-section{margin-bottom:24px}
 .plh-section .table-container{border-radius:0 0 10px 10px;box-shadow:none;border:none;border-top:1px solid #f0f2f5}
 /* ---- Fluxo de inspeção ---- */
+.plh-kpis{grid-template-columns:repeat(3,1fr);margin-bottom:16px}
+.plh-kpis .stat-card.ativo{border-color:#1976d2;box-shadow:0 0 0 2px #cfe3fb}
+.plh-kpis .stat-info h3{font-size:30px}
+.plh-kpis .sub{font-size:11.5px;color:#7b8794;margin-top:2px}
+.plh-kpis .sub b{color:#b3261e;font-weight:600}
+.plh-fx-paineis{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:24px}
+.plh-fx-paineis .chart-card{padding:16px 18px;min-width:0}
+.plh-mx{border-collapse:separate;border-spacing:4px;width:100%}
+.plh-mx th{background:none;border:none;font-size:10.5px;padding:2px 4px;text-transform:none;letter-spacing:0;color:#7b8794;text-align:center}
+.plh-mx th.r{text-align:left;font-size:12px;color:#3d4757;font-weight:600;cursor:pointer;white-space:nowrap}
+.plh-mx th.r:hover{color:#1976d2}
+.plh-mx td{text-align:center;border-radius:6px;font-weight:700;font-size:13px;height:34px;min-width:44px;cursor:pointer;padding:0;font-variant-numeric:tabular-nums;transition:transform .1s}
+.plh-mx td:hover{transform:scale(1.06)}
+.plh-mx td.v{background:#fbfcfd;color:#d5dae1;cursor:default;font-weight:400}
+.plh-mx td.v:hover{transform:none}
+.plh-mx td.u1{background:#E5534B;color:#fff}
+.plh-mx td.u2{background:#F5D76E;color:#5c4700}
+.plh-mx td.u3{background:#cfe3fb;color:#0d4a8a}
+.plh-mx td.u4{background:#eef1f4;color:#5f6b7c}
+.plh-mx td.tot{background:none;color:#9aa0ac;font-weight:600;cursor:default}
+.plh-mx td.sel{outline:3px solid #1976d2;outline-offset:1px}
+.plh-pt-resumo{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.plh-pt{display:grid;grid-template-columns:minmax(0,1.3fr) 92px minmax(0,1.2fr);gap:4px 12px;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6}
+.plh-pt:last-child{border-bottom:none}
+.plh-pt .o{font-size:12.5px;font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-pt .s{font-size:11px;color:#9aa0ac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-pt-et{font-size:10.5px;font-weight:600;border-radius:10px;padding:3px 8px;text-align:center;white-space:nowrap}
+.plh-pt-bar{position:relative;height:8px;background:#eef1f4;border-radius:4px;overflow:hidden}
+.plh-pt-bar span{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.plh-pt-txt{font-size:11px;color:#7b8794;margin-top:3px;display:flex;justify-content:space-between;gap:6px}
+.plh-pt-txt b{font-weight:600}
+.plh-cartao-tit{font-size:13px;font-weight:600;color:#5f6b7c;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.plh-cartao-tit .x{margin-left:auto;font-weight:400;font-size:11.5px;color:#9aa0ac}
+@media(max-width:1100px){.plh-fx-paineis{grid-template-columns:1fr}}
+@media(max-width:768px){.plh-kpis{grid-template-columns:1fr}.plh-pt{grid-template-columns:1fr 92px}.plh-pt>div:last-child{grid-column:1/-1}}
 .plh-funil{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px}
 .plh-funil-etapa{flex:1 0 112px;background:#fff;border:1px solid #f0f2f5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);padding:12px 12px 10px;cursor:pointer;position:relative;transition:box-shadow .2s,transform .2s}
 .plh-funil-etapa:hover{box-shadow:0 3px 10px rgba(0,0,0,0.1);transform:translateY(-1px)}
@@ -117,7 +152,6 @@
   <!-- FLUXO DE INSPEÇÃO -->
   <div id="plhFluxoView" style="display:none;">
     <div class="plh-warn" id="plhFxAviso" style="display:none;gap:8px;align-items:flex-start;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.45"></div>
-    <div class="plh-funil" id="plhFunil"></div>
     <div class="filters-bar" style="border-radius:10px;border:1px solid #f0f2f5;margin-bottom:12px;">
       <div class="search-box"><i class="fas fa-magnifying-glass"></i>
         <input type="text" id="plhFxBusca" placeholder="Buscar duto, componente, OS, PATEC..." oninput="plhRenderFluxo()"></div>
@@ -135,6 +169,13 @@
       <button class="btn-clear-filters" onclick="plhFxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
       <span id="plhFxCount" class="plh-muted" style="margin-left:auto;"></span>
     </div>
+    <div class="stats-grid plh-kpis" id="plhFxKpis"></div>
+    <div class="plh-fx-paineis">
+      <div class="chart-card" id="plhFxMatriz"></div>
+      <div class="chart-card" id="plhFxPatec"></div>
+    </div>
+    <div class="dashboard-section-title"><i class="fas fa-bars-progress" style="color:#1976d2"></i> Etapas e detalhe por inspeção</div>
+    <div class="plh-funil" id="plhFunil"></div>
     <div class="plh-legenda">
       <span><i class="b" style="background:#27ae60;border-color:#27ae60"></i> Feito</span>
       <span><i class="b" style="background:#1976d2;border-color:#1976d2"></i> Parado aqui</span>
@@ -186,7 +227,7 @@
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
 var PLH_VIEWS = ['plhDash', 'plhFluxo', 'plhPend', 'plhFicha'];
-var plhFx = { etapa: null };
+var plhFx = { etapa: null, grupo: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
 var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
 
@@ -437,12 +478,36 @@ function plhFxLimpar() {
   document.getElementById('plhFxPeriodo').value = 'prox12';
   document.getElementById('plhFxAnteriores').checked = true;
   document.getElementById('plhFxConcl').checked = false;
-  plhFx.etapa = null;
+  plhFx.etapa = null; plhFx.grupo = null;
   plhRenderFluxo();
 }
 
+var PLH_GRUPOS = {
+  fazer: function (x) { return x.tipo === 'demanda'; },
+  barco: function (x) { return x.tipo === 'demanda' && x.etapaAtual === 3; },
+  patec: function (x) { return x.tipo === 'execucao' && x.etapaAtual >= 4 && x.etapaAtual < 8; }
+};
+function plhFxGrupo(g) {
+  plhFx.grupo = plhFx.grupo === g ? null : g; plhFx.etapa = null;
+  plhRenderFluxo();
+}
+function plhFxCelula(plat, proc) {
+  var selPlat = document.getElementById('plhFxPlat'), selProc = document.getElementById('plhFxProc');
+  var mesma = selPlat.value === plat && selProc.value === (proc || '');
+  selPlat.value = mesma ? '' : plat; selProc.value = mesma ? '' : (proc || '');
+  document.getElementById('plhFxPlatModo').value = 'local';
+  plhFx.grupo = mesma ? null : 'fazer'; plhFx.etapa = null;
+  plhRenderFluxo();
+}
+function plhNome(n) {
+  var t = String(n || '').replace(/^[A-Z0-9]{3,5}-/, '').trim().toLowerCase().split(/\s+/).filter(String);
+  if (!t.length) return '';
+  var cap = function (w) { return w.charAt(0).toUpperCase() + w.slice(1); };
+  return t.length === 1 ? cap(t[0]) : cap(t[0]) + ' ' + cap(t[t.length - 1]);
+}
+
 function plhFxFiltrarEtapa(i) {
-  plhFx.etapa = plhFx.etapa === i ? null : i;
+  plhFx.etapa = plhFx.etapa === i ? null : i; plhFx.grupo = null;
   if (i === 8) document.getElementById('plhFxConcl').checked = true;
   plhRenderFluxo();
 }
@@ -476,16 +541,19 @@ function plhRenderFluxo() {
     // demanda ainda aberta, vencida antes do ano escolhido
     return anteriores && x.tipo === 'demanda' && ref && ref.slice(0, 4) < per && x.dias !== null && x.dias < 0;
   };
-  var base = (d.fluxo || []).filter(function (x) {
-    if (fp) {
-      var modo = document.getElementById('plhFxPlatModo').value;
-      if (modo === 'resp' ? x.plat !== fp : (x.locais || [x.plat]).indexOf(fp) < 0) return false;
+  var passa = function (x, ignorarPlatProc) {
+    if (fp && !ignorarPlatProc) {
+      if (modoPlat === 'resp' ? x.plat !== fp : (x.locais || [x.plat]).indexOf(fp) < 0) return false;
     }
-    if (fpr && x.proc !== fpr) return false;
+    if (fpr && !ignorarPlatProc && x.proc !== fpr) return false;
     if (!noPeriodo(x)) return false;
     if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep].join(' ').toLowerCase().indexOf(q) < 0) return false;
     return true;
-  });
+  };
+  var base = (d.fluxo || []).filter(function (x) { return passa(x, false); });
+  plhFxRenderKpis(base);
+  plhFxRenderMatriz((d.fluxo || []).filter(function (x) { return passa(x, true); }), fp, fpr, modoPlat);
+  plhFxRenderPatec(base);
   // funil: quantas estão paradas em cada etapa (sem o filtro de etapa)
   var cont = [], atras = [];
   for (var i = 0; i <= 8; i++) { cont[i] = 0; atras[i] = 0; }
@@ -500,11 +568,13 @@ function plhRenderFluxo() {
   }).join('');
 
   var lista = base.filter(function (x) {
+    if (plhFx.grupo) return PLH_GRUPOS[plhFx.grupo](x);
     if (plhFx.etapa !== null) return x.etapaAtual === plhFx.etapa;
     return concl || x.etapaAtual < 8;
   });
+  var rotGrupo = { fazer: 'a fazer', barco: 'aguardando barco', patec: 'em PATEC' };
   document.getElementById('plhFxCount').textContent = lista.length + ' inspeç' + (lista.length === 1 ? 'ão' : 'ões') +
-    (plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
+    (plhFx.grupo ? ' ' + rotGrupo[plhFx.grupo] : plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
   var icone = { ok: '<i class="fas fa-check"></i>', atual: '', alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '' };
   var linhas = lista.map(function (x) {
     var idx = d.fluxo.indexOf(x);
@@ -538,6 +608,116 @@ function plhRenderFluxo() {
   document.getElementById('plhFluxoLista').innerHTML = lista.length
     ? '<div class="table-container"><table class="plh-fx-tab"><thead>' + cab + '</thead><tbody>' + linhas + '</tbody></table></div>'
     : '<div class="empty-state"><i class="fas fa-bars-progress"></i><h3>Nenhuma inspeção com esses filtros</h3></div>';
+}
+
+/* A: três números do topo */
+function plhFxRenderKpis(base) {
+  var fazer = base.filter(PLH_GRUPOS.fazer), barco = base.filter(PLH_GRUPOS.barco), patec = base.filter(PLH_GRUPOS.patec);
+  var semOS = fazer.filter(function (x) { return x.etapaAtual === 2; }).length;
+  var venc = fazer.filter(function (x) { return x.dias !== null && x.dias < 0; }).length;
+  var repl = barco.filter(function (x) { return /replanej/i.test(x.statusOS); }).length;
+  var naoIni = patec.filter(function (x) { return x.naoIniciado; }).length;
+  var atrasP = patec.filter(function (x) { return x.alerta; }).length;
+  var card = function (g, icone, cor, n, titulo, sub) {
+    return '<div class="stat-card' + (plhFx.grupo === g ? ' ativo' : '') + '" onclick="plhFxGrupo(\'' + g + '\')" title="Clique para listar só estas">' +
+      '<div class="stat-icon ' + cor + '"><i class="fas ' + icone + '"></i></div><div class="stat-info"><h3>' + n + '</h3><p>' + titulo + '</p>' +
+      '<div class="sub">' + sub + '</div></div></div>';
+  };
+  var b = function (n, t) { return n ? '<b>' + n + ' ' + t + '</b>' : '0 ' + t; };
+  document.getElementById('plhFxKpis').innerHTML =
+    card('fazer', 'fa-list-check', 'blue', fazer.length, 'Inspeções a fazer', semOS + ' sem OS · ' + b(venc, 'vencida' + (venc === 1 ? '' : 's'))) +
+    card('barco', 'fa-ship', 'teal', barco.length, 'Aguardando barco (OS aberta)', b(repl, 'para replanejar')) +
+    card('patec', 'fa-file-signature', 'purple', patec.length, 'Em PATEC / relatório', b(naoIni, 'não iniciado' + (naoIni === 1 ? '' : 's')) + ' · ' + b(atrasP, 'atrasado' + (atrasP === 1 ? '' : 's')));
+}
+
+/* B: quadro plataforma (onde é feita) × procedimento, só inspeções a fazer */
+function plhFxRenderMatriz(itens, fp, fpr, modoPlat) {
+  var dem = itens.filter(PLH_GRUPOS.fazer);
+  var linhas = [], colunas = [], cel = {};
+  dem.forEach(function (x) {
+    (x.locais && x.locais.length ? x.locais : [x.plat]).forEach(function (l) {
+      if (linhas.indexOf(l) < 0) linhas.push(l);
+      if (colunas.indexOf(x.proc) < 0) colunas.push(x.proc);
+      var k = l + '|' + x.proc;
+      (cel[k] = cel[k] || []).push(x);
+    });
+  });
+  linhas.sort(); colunas.sort();
+  var urg = function (lista) {
+    var u = 4;
+    lista.forEach(function (x) {
+      var v = (x.dias !== null && x.dias < 0) || x.alerta ? 1 : x.dias !== null && x.dias <= 90 ? 2 : x.dias !== null && x.dias <= 365 ? 3 : 4;
+      if (v < u) u = v;
+    });
+    return u;
+  };
+  var el = document.getElementById('plhFxMatriz');
+  var tit = '<div class="plh-cartao-tit"><i class="fas fa-table-cells" style="color:#1976d2"></i> A fazer por plataforma e procedimento' +
+    '<span class="x">onde é feita · clique para filtrar</span></div>';
+  if (!dem.length) { el.innerHTML = tit + '<div class="plh-muted" style="padding:20px 0;text-align:center">Nenhuma inspeção a fazer no período</div>'; return; }
+  var totCol = {};
+  var corpo = linhas.map(function (l) {
+    var totL = 0;
+    var tds = colunas.map(function (c) {
+      var lista = cel[l + '|' + c] || [];
+      totL += lista.length; totCol[c] = (totCol[c] || 0) + lista.length;
+      if (!lista.length) return '<td class="v">·</td>';
+      var dica = lista.map(function (x) { return x.objeto + ' (vence ' + plhDataBR(x.prazo) + ')'; }).join('\n');
+      var sel = modoPlat !== 'resp' && fp === l && fpr === c ? ' sel' : '';
+      return '<td class="u' + urg(lista) + sel + '" title="' + plhE(dica) + '" onclick="plhFxCelula(\'' + plhE(l) + '\',\'' + plhE(c) + '\')">' + lista.length + '</td>';
+    }).join('');
+    return '<tr><th class="r" onclick="plhFxCelula(\'' + plhE(l) + '\',\'\')" title="Filtrar ' + plhE(l) + '">' + plhE(l) + '</th>' + tds + '<td class="tot">' + totL + '</td></tr>';
+  }).join('');
+  var rodape = '<tr><th></th>' + colunas.map(function (c) { return '<td class="tot">' + totCol[c] + '</td>'; }).join('') + '<td class="tot" style="color:#2c3e50">' + dem.length + '</td></tr>';
+  var legenda = '<div class="plh-legenda" style="margin:10px 0 0">' +
+    '<span><i class="b" style="background:#E5534B;border-color:#E5534B;border-radius:3px"></i> vencida / replanejar</span>' +
+    '<span><i class="b" style="background:#F5D76E;border-color:#F5D76E;border-radius:3px"></i> até 90 dias</span>' +
+    '<span><i class="b" style="background:#cfe3fb;border-color:#cfe3fb;border-radius:3px"></i> até 12 meses</span>' +
+    '<span><i class="b" style="background:#eef1f4;border-color:#eef1f4;border-radius:3px"></i> depois</span></div>';
+  el.innerHTML = tit + '<div style="overflow-x:auto"><table class="plh-mx"><thead><tr><th></th>' +
+    colunas.map(function (c) { return '<th>' + plhE(c) + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>' + corpo + rodape + '</tbody></table></div>' + legenda;
+}
+
+/* C: PATECs e relatórios em andamento, com prazo de emissão */
+function plhFxRenderPatec(base) {
+  var lista = base.filter(PLH_GRUPOS.patec).sort(function (a, b) {
+    var da = a.dias === null ? 1e9 : a.dias, db = b.dias === null ? 1e9 : b.dias;
+    return da - db;
+  });
+  var el = document.getElementById('plhFxPatec');
+  var tit = '<div class="plh-cartao-tit"><i class="fas fa-file-signature" style="color:#8e24aa"></i> PATEC em andamento' +
+    '<span class="x">ordenado pelo prazo de emissão</span></div>';
+  if (!lista.length) { el.innerHTML = tit + '<div class="plh-muted" style="padding:20px 0;text-align:center">Nenhum PATEC em andamento nos filtros</div>'; return; }
+  var est = function (x) {
+    if (x.etapaAtual === 4) return ['Cadastro ISUB', '#eef1f4', '#5f6b7c'];
+    if (x.naoIniciado) return ['Não iniciado', '#fde4e2', '#b3261e'];
+    return [['', '', '', '', '', 'Elaboração', 'Verificação', 'Aprovação'][x.etapaAtual], ['', '', '', '', '', '#e3f2fd', '#ede7f6', '#e8f5e9'][x.etapaAtual], ['', '', '', '', '', '#1565c0', '#5e35b1', '#2e7d32'][x.etapaAtual]];
+  };
+  var cont = {};
+  lista.forEach(function (x) { var e = est(x)[0]; cont[e] = (cont[e] || 0) + 1; });
+  var ordem = ['Cadastro ISUB', 'Não iniciado', 'Elaboração', 'Verificação', 'Aprovação'];
+  var resumo = '<div class="plh-pt-resumo">' + ordem.filter(function (e) { return cont[e]; }).map(function (e) {
+    var c = est({ etapaAtual: { 'Cadastro ISUB': 4, 'Não iniciado': 5, 'Elaboração': 5, 'Verificação': 6, 'Aprovação': 7 }[e], naoIniciado: e === 'Não iniciado' });
+    return '<span class="plh-pt-et" style="background:' + c[1] + ';color:' + c[2] + '">' + cont[e] + ' ' + e + '</span>';
+  }).join('') + '</div>';
+  var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  var linhas = lista.map(function (x) {
+    var e = est(x);
+    var bar = '<div class="plh-muted" style="font-size:11px">sem prazo de PATEC</div>';
+    if (x.prazo && x.dataRef) {
+      var t0 = new Date(x.dataRef + 'T00:00:00'), t1 = new Date(x.prazo + 'T00:00:00');
+      var total = Math.max(1, t1 - t0), pct = Math.max(0, Math.min(100, (hoje - t0) / total * 100));
+      var cor = x.dias < 0 ? '#E5534B' : pct >= 75 ? '#F0A030' : '#7cc49a';
+      bar = '<div class="plh-pt-bar"><span style="width:' + (x.dias < 0 ? 100 : pct.toFixed(0)) + '%;background:' + cor + '"></span></div>' +
+        '<div class="plh-pt-txt"><span>' + plhDataBR(x.prazo) + '</span><b style="color:' + (x.dias < 0 ? '#b3261e' : x.dias <= 30 ? '#a15c00' : '#5f6b7c') + '">' +
+        (x.dias < 0 ? (-x.dias) + ' d atrasado' : 'faltam ' + x.dias + ' d') + '</b></div>';
+    }
+    var quem = x.etapaAtual === 4 ? 'aguardando cadastro' : x.naoIniciado ? (x.comQuem ? plhNome(x.comQuem) + ' (não iniciou)' : 'sem elaborador') : plhNome(x.comQuem);
+    return '<div class="plh-pt"><div style="min-width:0"><div class="o" title="' + plhE(x.objeto + ' · ' + x.comp) + '">' + plhE(x.objeto) + '</div>' +
+      '<div class="s">' + plhE(x.proc + ' · executada ' + plhDataBR(x.dataRef) + (quem ? ' · ' + quem : '')) + '</div></div>' +
+      '<span class="plh-pt-et" style="background:' + e[1] + ';color:' + e[2] + '">' + e[0] + '</span><div>' + bar + '</div></div>';
+  }).join('');
+  el.innerHTML = tit + resumo + '<div style="max-height:360px;overflow-y:auto">' + linhas + '</div>';
 }
 
 /* ---------------- PENDÊNCIAS ---------------- */

@@ -683,6 +683,9 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
       e.push(passo(aprovFeita, verifFeita && !aprovFeita, concl, pessoa(r.Aprovador), 'Aprovado ' + dBR(concl)));
       if (atual === undefined) atual = aprovFeita ? 8 : verifFeita ? 7 : elabFeita ? 6 : 5;
     }
+    var pessoa1 = function (x) { return plhTxt_(x).split(/[\r\n]/)[0]; };
+    var comQuem = atual === 4 ? 'Cadastro do relatório' : atual === 5 ? pessoa1(r.Elaborador)
+      : atual === 6 ? pessoa1(r.Verificador) : atual === 7 ? pessoa1(r.Aprovador) : '';
     var p = planPorCodigo[plhTxt_(r.Cod_Planej_Posterior)];
     var interlig = plhTxt_(r.Interligacao);
     var uepsExec = p ? acharICPI(p.objeto, p.proc, p.prox).map(function (c) { return c.uep; }).filter(String) : [];
@@ -697,7 +700,8 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
       objeto: interlig, comp: comp, proc: plhTxt_(r.Procedimento), uep: uepsExec.join(', '),
       locais: plhLocais_(uepsExec, platResp), planej: plhTxt_(r.Cod_Planej_Posterior),
       prazo: semPatec ? '' : plhIso_(prazo), dataRef: plhIso_(exec), dias: semPatec ? null : dias, os: '', statusOS: '',
-      patec: plhTxt_(r.PATEC), etapaAtual: atual, etapas: e, situacao: situacao,
+      patec: plhTxt_(r.PATEC), etapaAtual: atual, etapas: e, situacao: situacao, comQuem: comQuem,
+      naoIniciado: atual === 5 && !ini && !st,
       alerta: !semPatec && !concluido && dias !== null && dias < 0
     });
   });
