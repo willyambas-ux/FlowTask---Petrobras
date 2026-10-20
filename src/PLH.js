@@ -221,6 +221,40 @@ function plhLerJaquetas_(ss) {
   return { info: info, rows: rows };
 }
 
+/** SRC_ICPI (painel BI, opcional): só a OS e o Status OS de cada demanda. Lido pelo nome do cabeçalho. */
+var PLH_ABA_ICPI = 'SRC_ICPI';
+function plhLerICPI_(ss) {
+  var props = PropertiesService.getDocumentProperties();
+  var info = { base: 'ICPI (OS)', sistema: 'Painel BI', aba: PLH_ABA_ICPI, linhas: 0, ok: false, erro: '',
+               opcional: true, atualizado: props.getProperty('PLH_ATUALIZADO_' + PLH_ABA_ICPI) || '' };
+  var sh = ss.getSheetByName(PLH_ABA_ICPI);
+  if (!sh) { info.erro = 'Aba não encontrada (opcional)'; return { info: info, rows: [] }; }
+  info.gid = sh.getSheetId();
+  var vals = sh.getDataRange().getValues();
+  if (vals.length < 2) { info.erro = 'Aba vazia (opcional)'; return { info: info, rows: [] }; }
+  var cab = vals[0].map(plhNorm_);
+  var col = function (n) { return cab.indexOf(n); };
+  var ix = { objeto: col('objeto submarino'), proc: col('procedimento'), uep: col('uep'), venc: col('venc. min.'),
+             os: col('os'), statusOS: col('status os'), grupo: col('grupo') };
+  if (ix.objeto < 0 || ix.proc < 0 || ix.venc < 0) { info.erro = 'Cabeçalho não confere (Objeto Submarino, Procedimento, Venc. Mín.)'; return { info: info, rows: [] }; }
+  var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
+  var rows = [], cerquilhas = 0;
+  for (var i = 1; i < vals.length; i++) {
+    var r = vals[i];
+    if (!plhTxt_(g(r, 'objeto'))) continue;
+    if (/^#+$/.test(plhTxt_(g(r, 'venc'))) || /^#+$/.test(plhTxt_(g(r, 'os')))) cerquilhas++;
+    var os = plhTxt_(g(r, 'os'));
+    if (/^#+$/.test(os)) os = '';
+    rows.push({ objeto: plhTxt_(g(r, 'objeto')), proc: plhTxt_(g(r, 'proc')), uep: plhTxt_(g(r, 'uep')),
+                venc: plhData_(g(r, 'venc')), os: (os === '-' ? '' : os), statusOS: plhTxt_(g(r, 'statusOS')),
+                grupo: plhTxt_(g(r, 'grupo')) });
+  }
+  info.ok = true;
+  info.linhas = rows.length;
+  if (cerquilhas) info.aviso = cerquilhas + ' linha(s) com ##### em Venc. Mín./OS: no Excel, alargue as colunas (Ctrl+A e duplo clique na divisa entre colunas) antes de copiar';
+  return { info: info, rows: rows };
+}
+
 /* ---------- regras de negócio ---------- */
 
 function plhStatusPrazo_(dias, janela) {
@@ -265,6 +299,7 @@ function getPlhData() {
   });
   var jq = plhLerJaquetas_(ss);
   fontes.push(jq.info);
+  var icpi = plhLerICPI_(ss);
 
   /* --- Planejamento --- */
   var plan = [];
@@ -425,6 +460,9 @@ function getPlhData() {
     };
   });
 
+  /* --- Fluxo das inspeções: demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC --- */
+  var fluxo = plhMontarFluxo_(plan, src.Historico, icpi.rows, idPorNome, hoje);
+
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
   var push = function (p) { p.urg = plhUrgencia_(p.situacao, p.dias); pend.push(p); };
@@ -492,7 +530,9 @@ function getPlhData() {
   objetos.forEach(function (o) { if (o.plat) plats[o.plat] = true; });
   jaquetas.forEach(function (j) { if (j.plat) plats[j.plat] = true; });
 
+  fontes.push(icpi.info);
   fontes.forEach(function (f) {
+    if (f.base === 'ICPI (OS)') return;
     f.linhas = f.base === 'RT' ? rtTotal : f.base === 'Planejamento' ? plan.length
       : f.base === 'Historico' ? src.Historico.length : f.base === 'Interligacoes' ? src.Interligacoes.length
       : jq.rows.length;
@@ -504,6 +544,157 @@ function getPlhData() {
     janela: PLH_JANELA_PLANEJ,
     fontes: fontes, plataformas: Object.keys(plats).sort(),
     objetos: objetos, plan: plan, rts: rts, patec: patec, jaquetas: jaquetas,
-    pend: pend, valid: valid
+    pend: pend, valid: valid, fluxo: fluxo,
+    etapasFluxo: PLH_ETAPAS
   };
+}
+
+
+/* ============================================================================
+ *  FLUXO DAS INSPEÇÕES (uma linha do tempo por inspeção)
+ *  Etapas: Demanda · PLANCOR · OS · Execução · Relatório no ISUB · Elaboração · Verificação · Aprovação
+ *  Estados de cada etapa: ok (feita), atual (onde está parada), pend (ainda não chegou),
+ *  na (não se aplica), sem (sem fonte de dados ainda).
+ * ==========================================================================*/
+var PLH_ETAPAS = ['Demanda', 'PLANCOR', 'OS', 'Execução', 'Relatório ISUB', 'Elaboração', 'Verificação', 'Aprovação'];
+var PLH_FLUXO_HORIZONTE = 730;   // demandas com vencimento em até 24 meses (a tela filtra)
+var PLH_FLUXO_EXEC_DIAS = 365;   // execuções do último ano ainda em tratamento
+var PLH_FLUXO_CONCL_DIAS = 60;   // concluídas recentemente continuam visíveis por 60 dias
+
+function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
+  var fluxo = [];
+  var dBR = function (d) { return d ? Utilities.formatDate(d, ssTimeZone(), 'dd/MM/yyyy') : ''; };
+  var etapa = function (estado, data, info) { return { estado: estado, data: data || '', info: info || '' }; };
+
+  // ICPI agrupado por objeto + procedimento
+  var icpiPor = {};
+  icpiRows.forEach(function (r) {
+    var k = plhNorm_(r.objeto) + '|' + plhNorm_(r.proc);
+    (icpiPor[k] = icpiPor[k] || []).push(r);
+  });
+  var acharICPI = function (objeto, proc, proxIso) {
+    var lista = icpiPor[plhNorm_(objeto) + '|' + plhNorm_(proc)] || [];
+    if (!proxIso) return [];
+    var alvo = new Date(proxIso + 'T00:00:00').getTime();
+    return lista.filter(function (r) { return r.venc && Math.abs(r.venc.getTime() - alvo) <= 3 * 86400000; });
+  };
+
+  // 1) Demandas: planejamentos vencidos ou que vencem no horizonte,
+  //    agrupados como no ICPI (objeto + procedimento + vencimento; vários componentes viram uma demanda)
+  var grupos = {}, ordem = [];
+  plan.forEach(function (p) {
+    if (p.dias === null || p.dias > PLH_FLUXO_HORIZONTE) return;
+    if (plhNorm_(p.situacao).indexOf('permanentemente') >= 0) return;
+    var k = plhNorm_(p.objeto) + '|' + plhNorm_(p.proc) + '|' + p.prox;
+    if (!grupos[k]) { grupos[k] = { p: p, comps: [], planejs: [] }; ordem.push(k); }
+    grupos[k].comps.push(p.comp); grupos[k].planejs.push(p.planej);
+  });
+  ordem.forEach(function (k) {
+    var g = grupos[k], p = g.p;
+    var cand = acharICPI(p.objeto, p.proc, p.prox);
+    var comOS = cand.filter(function (r) { return r.os; });
+    var ueps = cand.map(function (r) { return r.uep; }).filter(String);
+    var replanejar = comOS.some(function (r) { return /replanej/i.test(r.statusOS); });
+    var infoOS;
+    if (!cand.length) infoOS = 'Sem OS (demanda não encontrada no ICPI)';
+    else if (cand.length === 1) infoOS = comOS.length ? 'OS ' + comOS[0].os + (comOS[0].statusOS ? ' · ' + comOS[0].statusOS : '') : 'Sem OS';
+    else infoOS = cand.map(function (r) {
+      return (r.uep || 'trecho') + ': ' + (r.os ? 'OS ' + r.os + (r.statusOS ? ' · ' + r.statusOS : '') : 'sem OS');
+    }).join(' | ');
+    var temOS = comOS.length > 0, todasComOS = cand.length > 0 && comOS.length === cand.length;
+    var vencida = p.dias < 0;
+    // Com OS em todas as pontas: OS feita, parada em Execução (programação/detalhamento/carteira do barco).
+    // Sem OS (ou só em parte das pontas): parada em OS.
+    var eOS, eExec, atualIdx;
+    if (todasComOS) {
+      eOS = etapa('ok', '', comOS.map(function (r) { return 'OS ' + r.os + (cand.length > 1 && r.uep ? ' (' + r.uep + ')' : ''); }).join(', '));
+      eExec = etapa(replanejar || vencida ? 'alerta' : 'atual', '', 'Aguardando execução · ' + infoOS);
+      atualIdx = 3;
+    } else {
+      eOS = etapa(vencida || replanejar ? 'alerta' : 'atual', '', infoOS);
+      eExec = etapa('pend');
+      atualIdx = 2;
+    }
+    var e = [
+      etapa('ok', p.prox, vencida ? 'Vencida há ' + (-p.dias) + ' dias' : 'Vence em ' + p.dias + ' dias'),
+      etapa('sem', '', 'Ainda sem fonte do PLANCOR'),
+      eOS, eExec, etapa('pend'), etapa('pend'), etapa('pend'), etapa('pend')
+    ];
+    var stOS = comOS.map(function (r) { return r.statusOS; }).filter(String);
+    fluxo.push({
+      tipo: 'demanda', chave: 'FLX ' + g.planejs.join('+'), plat: p.plat, objId: p.objId, objeto: p.objeto,
+      comp: g.comps.join(' · '), proc: p.proc, uep: ueps.join(', '), planej: g.planejs.join(', '),
+      prazo: p.prox, dias: p.dias, os: comOS.map(function (r) { return r.os; }).join(', '),
+      statusOS: stOS.join(', '), etapaAtual: atualIdx, etapas: e,
+      situacao: !temOS ? 'Aguardando OS' : todasComOS ? 'OS ' + (stOS[0] || 'aberta') : 'OS parcial',
+      alerta: p.dias < 0 || replanejar
+    });
+  });
+
+  // 2) Execuções do último ano ainda em tratamento (relatório / PATEC)
+  var limiteExec = new Date(hoje.getTime() - PLH_FLUXO_EXEC_DIAS * 86400000);
+  var limiteConcl = new Date(hoje.getTime() - PLH_FLUXO_CONCL_DIAS * 86400000);
+  var planPorCodigo = {};
+  plan.forEach(function (p) { if (p.planej) planPorCodigo[p.planej] = p; });
+  historico.forEach(function (r) {
+    var comp = plhTxt_(r.Componente);
+    if (!plhTxt_(r.Componente_BDIEP) || comp.indexOf('Ponto') === 0) return;
+    var exec = plhData_(r.Dt_Execucao);
+    if (!exec || exec < limiteExec) return;
+    var aplic = plhTxt_(r.PATEC_Aplic).toLowerCase();
+    var semPatec = aplic.indexOf('não aplicável') >= 0 || aplic.indexOf('somente execução') >= 0;
+    var st = plhTxt_(r.Status_PATEC_Sistema);
+    var cad = plhData_(r.Dt_Cadastro_Relatorio), ini = plhData_(r.Dt_Inicio_Elab), envV = plhData_(r.Dt_Envio_Verif),
+        envA = plhData_(r.Dt_Envio_Aprov), concl = plhData_(r.Dt_Conclusao), prazo = plhData_(r.Prazo_Emissao_PATEC);
+    var concluido = st === 'Concluído' || !!concl;
+    // fora da tela: concluído há mais de 60 dias, ou sem PATEC com relatório cadastrado há mais de 60 dias
+    if (concluido && (concl || cad || exec) < limiteConcl) return;
+    if (semPatec && cad && cad < limiteConcl) return;
+
+    var dias = plhDias_(prazo, hoje);
+    var e = [etapa('ok', '', 'Atendida'), etapa('ok', '', ''), etapa('ok', '', ''),
+             etapa('ok', plhIso_(exec), 'Executada em ' + dBR(exec))];
+    var atual;
+    if (!cad) { e.push(etapa('atual', '', 'Relatório ainda não cadastrado')); atual = 4; }
+    else e.push(etapa('ok', plhIso_(cad), 'Cadastrado em ' + dBR(cad) + (plhTxt_(r.Resp_Relatorio) ? ' por ' + plhTxt_(r.Resp_Relatorio).split(/[\r\n]/)[0] : '')));
+    if (semPatec) {
+      e.push(etapa('na', '', 'PATEC não aplicável'), etapa('na'), etapa('na'));
+      if (atual === undefined) atual = 8;
+    } else {
+      var pessoa = function (x) { return plhTxt_(x).split(/[\r\n]/)[0]; };
+      var passo = function (feito, emAndamento, dataFeito, quem, rotulo) {
+        if (feito) return etapa('ok', plhIso_(dataFeito), rotulo + (quem ? ' · ' + quem : ''));
+        if (emAndamento) return etapa(dias !== null && dias < 0 ? 'alerta' : 'atual', '', (quem ? quem + ' · ' : '') + 'em andamento');
+        return etapa('pend');
+      };
+      var elabFeita = !!envV || concluido, verifFeita = !!envA || concluido, aprovFeita = concluido;
+      var elab = passo(elabFeita, cad && !elabFeita, envV, pessoa(r.Elaborador), 'Enviado p/ verificação ' + dBR(envV));
+      if (cad && !elabFeita && !ini && !st) elab = etapa(dias !== null && dias < 0 ? 'alerta' : 'atual', '', 'PATEC não iniciado');
+      e.push(elab);
+      e.push(passo(verifFeita, elabFeita && !verifFeita, envA, pessoa(r.Verificador), 'Enviado p/ aprovação ' + dBR(envA)));
+      e.push(passo(aprovFeita, verifFeita && !aprovFeita, concl, pessoa(r.Aprovador), 'Aprovado ' + dBR(concl)));
+      if (atual === undefined) atual = aprovFeita ? 8 : verifFeita ? 7 : elabFeita ? 6 : 5;
+    }
+    var p = planPorCodigo[plhTxt_(r.Cod_Planej_Posterior)];
+    var interlig = plhTxt_(r.Interligacao);
+    var situacao = atual === 8 ? (semPatec ? 'Relatório cadastrado (sem PATEC)' : 'PATEC concluído')
+      : atual === 4 ? 'Aguardando cadastro do relatório'
+      : ['', '', '', '', '', 'PATEC em elaboração', 'PATEC em verificação', 'PATEC em aprovação'][atual];
+    if (atual === 5 && !ini && !st) situacao = 'PATEC não iniciado';
+    fluxo.push({
+      tipo: 'execucao', chave: 'FLX EXEC ' + plhTxt_(r.Componente_BDIEP) + ' ' + plhIso_(exec),
+      plat: plhPlataforma_(r.Instalacao_Resp), objId: idPorNome[plhNorm_(interlig)] || (p ? p.objId : ''),
+      objeto: interlig, comp: comp, proc: plhTxt_(r.Procedimento), uep: '', planej: plhTxt_(r.Cod_Planej_Posterior),
+      prazo: semPatec ? '' : plhIso_(prazo), dias: semPatec ? null : dias, os: '', statusOS: '',
+      patec: plhTxt_(r.PATEC), etapaAtual: atual, etapas: e, situacao: situacao,
+      alerta: !semPatec && !concluido && dias !== null && dias < 0
+    });
+  });
+
+  fluxo.sort(function (a, b) {
+    if (a.etapaAtual !== b.etapaAtual) return a.etapaAtual - b.etapaAtual;
+    var da = a.dias === null ? 1e9 : a.dias, db = b.dias === null ? 1e9 : b.dias;
+    return da - db;
+  });
+  return fluxo;
 }

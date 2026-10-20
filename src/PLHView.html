@@ -37,6 +37,46 @@
 .plh-kv .plh-k{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ac;margin-bottom:3px}
 .plh-section{margin-bottom:24px}
 .plh-section .table-container{border-radius:0 0 10px 10px;box-shadow:none;border:none;border-top:1px solid #f0f2f5}
+/* ---- Fluxo de inspeção ---- */
+.plh-funil{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px}
+.plh-funil-etapa{flex:1 0 112px;background:#fff;border:1px solid #f0f2f5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);padding:12px 12px 10px;cursor:pointer;position:relative;transition:box-shadow .2s,transform .2s}
+.plh-funil-etapa:hover{box-shadow:0 3px 10px rgba(0,0,0,0.1);transform:translateY(-1px)}
+.plh-funil-etapa.ativo{border-color:#1976d2;box-shadow:0 0 0 2px #cfe3fb}
+.plh-funil-etapa .n{font-size:24px;font-weight:700;color:#2c3e50;line-height:1.1;font-variant-numeric:tabular-nums}
+.plh-funil-etapa .t{font-size:11px;color:#7b8794;margin-top:2px;white-space:nowrap}
+.plh-funil-etapa .a{font-size:11px;color:#b3261e;font-weight:600;margin-top:4px;min-height:14px}
+.plh-funil-etapa .num{position:absolute;top:8px;right:10px;font-size:10px;color:#c0c6cf;font-weight:600}
+.plh-funil-etapa.zero .n{color:#c0c6cf}
+.plh-funil-etapa.fim{background:#f3faf5}
+.plh-fluxo-lista{display:flex;flex-direction:column;gap:10px}
+.plh-fx{background:#fff;border:1px solid #f0f2f5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);padding:14px 18px;display:grid;grid-template-columns:minmax(220px,1.1fr) minmax(340px,2fr) 150px;gap:18px;align-items:center}
+.plh-fx.alerta{border-left:4px solid #E5534B}
+.plh-fx-obj .o{font-weight:600;color:#2c3e50;font-size:13.5px}
+.plh-fx-obj .c{font-size:12px;color:#7b8794;margin-top:2px}
+.plh-fx-obj .m{font-size:11.5px;color:#9aa0ac;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+.plh-fx-obj .m span{background:#f5f7fa;border-radius:6px;padding:1px 7px}
+.plh-steps{display:flex;align-items:flex-start}
+.plh-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;min-width:0}
+.plh-step:not(:last-child)::after{content:'';position:absolute;top:10px;left:calc(50% + 12px);right:calc(-50% + 12px);height:2px;background:#e3e7ec}
+.plh-step.ok:not(:last-child)::after{background:#8fd3a8}
+.plh-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #d5dae1;background:#fff;color:#9aa0ac;z-index:1}
+.plh-step.ok .plh-dot{background:#27ae60;border-color:#27ae60;color:#fff}
+.plh-step.atual .plh-dot{background:#1976d2;border-color:#1976d2;color:#fff;box-shadow:0 0 0 4px #d6e7fb}
+.plh-step.alerta .plh-dot{background:#E5534B;border-color:#E5534B;color:#fff;box-shadow:0 0 0 4px #fbdedc}
+.plh-step.na .plh-dot{border-style:dashed;background:#f5f7fa;color:#c0c6cf}
+.plh-step.sem .plh-dot{border-style:dashed;border-color:#e0b252;color:#b07d10;background:#fffaf0}
+.plh-step .l{font-size:10px;color:#9aa0ac;margin-top:5px;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.plh-step.atual .l,.plh-step.alerta .l{color:#2c3e50;font-weight:600}
+.plh-step .d{font-size:9.5px;color:#b0b6bf;margin-top:1px;white-space:nowrap}
+.plh-fx-info{font-size:12px;color:#5f6b7c;margin-top:8px;padding-left:2px}
+.plh-fx-info b{color:#2c3e50}
+.plh-fx-dir{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.plh-fx-dir .pz{font-size:12px;color:#7b8794}
+.plh-legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#7b8794;margin:-4px 0 14px}
+.plh-legenda span{display:inline-flex;align-items:center;gap:5px}
+.plh-legenda i.b{width:11px;height:11px;border-radius:50%;display:inline-block;border:2px solid #d5dae1}
+@media(max-width:1100px){.plh-fx{grid-template-columns:1fr;gap:10px}.plh-fx-dir{flex-direction:row;justify-content:space-between;align-items:center}}
+@media(max-width:768px){.plh-step .l,.plh-step .d{display:none}.plh-step.atual .l,.plh-step.alerta .l{display:block}}
 @media(max-width:768px){.plh-charts{grid-template-columns:1fr}.plh-ficha-head input,.plh-ficha-head select{min-width:0;width:100%}}
 </style>
 
@@ -73,6 +113,35 @@
         <span id="plhValidCount" class="plh-muted" style="margin-left:auto;font-weight:400;"></span></div>
       <div class="alerts-list" id="plhValid"></div>
     </div>
+  </div>
+
+  <!-- FLUXO DE INSPEÇÃO -->
+  <div id="plhFluxoView" style="display:none;">
+    <div class="plh-funil" id="plhFunil"></div>
+    <div class="filters-bar" style="border-radius:10px;border:1px solid #f0f2f5;margin-bottom:12px;">
+      <div class="search-box"><i class="fas fa-magnifying-glass"></i>
+        <input type="text" id="plhFxBusca" placeholder="Buscar duto, componente, OS, PATEC..." oninput="plhRenderFluxo()"></div>
+      <select class="filter-select" id="plhFxPlat" onchange="plhRenderFluxo()"></select>
+      <select class="filter-select" id="plhFxProc" onchange="plhRenderFluxo()"></select>
+      <select class="filter-select" id="plhFxHorizonte" onchange="plhRenderFluxo()">
+        <option value="180">Demandas: vencidas + 6 meses</option>
+        <option value="365" selected>Demandas: vencidas + 12 meses</option>
+        <option value="730">Demandas: vencidas + 24 meses</option>
+      </select>
+      <label class="plh-muted" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="plhFxConcl" onchange="plhRenderFluxo()"> Mostrar concluídas</label>
+      <button class="btn-clear-filters" onclick="plhFxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
+      <span id="plhFxCount" class="plh-muted" style="margin-left:auto;"></span>
+    </div>
+    <div class="plh-legenda">
+      <span><i class="b" style="background:#27ae60;border-color:#27ae60"></i> Feito</span>
+      <span><i class="b" style="background:#1976d2;border-color:#1976d2"></i> Parado aqui</span>
+      <span><i class="b" style="background:#E5534B;border-color:#E5534B"></i> Parado e atrasado / replanejar</span>
+      <span><i class="b"></i> Ainda não chegou</span>
+      <span><i class="b" style="border-style:dashed;border-color:#e0b252;background:#fffaf0"></i> Sem fonte de dados</span>
+      <span><i class="b" style="border-style:dashed;background:#f5f7fa"></i> Não se aplica</span>
+    </div>
+    <div class="plh-fluxo-lista" id="plhFluxoLista"></div>
   </div>
 
   <!-- PENDÊNCIAS -->
@@ -114,7 +183,8 @@
 <script>
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
-var PLH_VIEWS = ['plhDash', 'plhPend', 'plhFicha'];
+var PLH_VIEWS = ['plhDash', 'plhFluxo', 'plhPend', 'plhFicha'];
+var plhFx = { etapa: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
 var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
 
@@ -124,13 +194,14 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   if (menu) {
     var html = '<div class="menu-section-title">PLH SSUB</div>' +
       '<a href="#" class="menu-item" data-view="plhDash"><i class="fas fa-water"></i><span class="label">Visão Geral</span></a>' +
+      '<a href="#" class="menu-item" data-view="plhFluxo"><i class="fas fa-bars-progress"></i><span class="label">Fluxo de inspeção</span></a>' +
       '<a href="#" class="menu-item" data-view="plhPend"><i class="fas fa-list-ol"></i><span class="label">Pendências</span>' +
         '<span class="menu-badge" id="plhBadge" style="background:#E5534B;display:none;">0</span></a>' +
       '<a href="#" class="menu-item" data-view="plhFicha"><i class="fas fa-id-card"></i><span class="label">Fichas</span></a>';
     menu.insertAdjacentHTML('beforeend', html);
   }
   var area = document.querySelector('.content-area');
-  ['plhDashView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
+  ['plhDashView', 'plhFluxoView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
     var el = document.getElementById(id);
     if (area && el) area.appendChild(el);
   });
@@ -146,6 +217,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   var origTitulo = updatePageTitle;
   updatePageTitle = function () {
     var t = { plhDash: ['PLH SSUB', 'Integridade de dutos, interligações e jaquetas'],
+              plhFluxo: ['PLH SSUB · Fluxo de inspeção', 'Demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC'],
               plhPend: ['PLH SSUB · Pendências', 'Lista única de trabalho, da mais urgente para a menos'],
               plhFicha: ['PLH SSUB · Fichas', 'Tudo sobre uma plataforma ou um objeto'] }[currentView];
     if (!t) return origTitulo();
@@ -218,7 +290,7 @@ function plhCarregar(forcar, silencioso) {
 function plhMostrarCarregando() {
   PLH_VIEWS.forEach(function (v) {
     if (v !== currentView) return;
-    var alvo = { plhDash: 'plhStats', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
+    var alvo = { plhDash: 'plhStats', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
     var el = document.getElementById(alvo);
     var html = '<div class="loading"><div class="spinner"></div><p>Lendo as abas do PLH...</p></div>';
     if (el) el.innerHTML = v === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
@@ -228,7 +300,7 @@ function plhMostrarCarregando() {
 function plhMostrarErro() {
   var html = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>Não foi possível ler os dados</h3><p>' +
     escapeHtml(plh.erro) + '</p></div>';
-  var alvo = { plhDash: 'plhStats', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
+  var alvo = { plhDash: 'plhStats', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
   var el = document.getElementById(alvo);
   if (el) el.innerHTML = currentView === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
 }
@@ -243,6 +315,7 @@ function plhAtualizarBadge() {
 
 function plhRender() {
   if (currentView === 'plhDash') plhRenderDash();
+  else if (currentView === 'plhFluxo') plhRenderFluxo();
   else if (currentView === 'plhPend') plhRenderPend();
   else if (currentView === 'plhFicha') plhRenderFicha();
 }
@@ -268,9 +341,11 @@ function plhRenderDash() {
   var conhecidas = datas.filter(Boolean);
   var maisAntiga = conhecidas.length ? new Date(Math.min.apply(null, conhecidas)) : null;
   var dias = maisAntiga ? Math.floor((Date.now() - maisAntiga) / 86400000) : null;
-  var falhas = d.fontes.filter(function (f) { return !f.ok; });
+  var falhas = d.fontes.filter(function (f) { return !f.ok && !f.opcional; });
+  var avisos = d.fontes.filter(function (f) { return f.aviso; });
   var aviso = '';
   if (falhas.length) aviso = '<span class="plh-warn"><i class="fas fa-triangle-exclamation"></i> ' + falhas.length + ' base(s) com problema, veja "Fontes de dados"</span>';
+  else if (avisos.length) aviso = '<span class="plh-warn"><i class="fas fa-triangle-exclamation"></i> ' + plhE(avisos[0].base) + ': colagem com #####, veja "Fontes de dados"</span>';
   else if (dias === null || conhecidas.length < d.fontes.length) aviso = '<span class="plh-warn">Data de colagem desconhecida em alguma base (é registrada a partir da próxima colagem)</span>';
   else if (dias > 7) aviso = '<span class="plh-warn"><i class="fas fa-clock"></i> Base mais antiga colada há ' + dias + ' dias</span>';
   document.getElementById('plhBanner').innerHTML =
@@ -329,7 +404,10 @@ function plhRenderDash() {
     return '<tr><td><strong>' + plhE(f.base) + '</strong></td><td>' + plhE(f.sistema) + '</td><td>' + aba + '</td>' +
       '<td class="plh-num">' + f.linhas + '</td>' +
       '<td>' + (quando ? quando.toLocaleDateString('pt-BR') + ' <span class="plh-muted">(' + idade + ' d)</span>' : '<span class="plh-muted">não registrado</span>') + '</td>' +
-      '<td>' + (f.ok ? '<span class="plh-chip plh-u4" style="background:#e8f5e9;color:#2e7d32;">OK</span>' : '<span class="plh-chip plh-u1">' + plhE(f.erro) + '</span>') + '</td></tr>';
+      '<td>' + (f.ok
+        ? (f.aviso ? '<span class="plh-chip plh-u2" style="white-space:normal">' + plhE(f.aviso) + '</span>'
+                   : '<span class="plh-chip plh-u4" style="background:#e8f5e9;color:#2e7d32;">OK</span>')
+        : '<span class="plh-chip ' + (f.opcional ? 'plh-u5' : 'plh-u1') + '">' + plhE(f.erro) + '</span>') + '</td></tr>';
   }).join('');
 
   // Validação
@@ -350,6 +428,84 @@ function plhIrPendencias(iCard, filtro) {
   updatePageTitle(); updateViewVisibility(); plhRenderPend();
 }
 
+/* ---------------- FLUXO DE INSPEÇÃO ---------------- */
+function plhFxLimpar() {
+  ['plhFxBusca', 'plhFxPlat', 'plhFxProc'].forEach(function (id) { document.getElementById(id).value = ''; });
+  document.getElementById('plhFxHorizonte').value = '365';
+  document.getElementById('plhFxConcl').checked = false;
+  plhFx.etapa = null;
+  plhRenderFluxo();
+}
+
+function plhFxFiltrarEtapa(i) {
+  plhFx.etapa = plhFx.etapa === i ? null : i;
+  if (i === 8) document.getElementById('plhFxConcl').checked = true;
+  plhRenderFluxo();
+}
+
+function plhRenderFluxo() {
+  if (!plh.data) return;
+  var d = plh.data, E = d.etapasFluxo || [];
+  var q = document.getElementById('plhFxBusca').value.toLowerCase().trim();
+  var fp = document.getElementById('plhFxPlat').value, fpr = document.getElementById('plhFxProc').value;
+  var hz = Number(document.getElementById('plhFxHorizonte').value);
+  var concl = document.getElementById('plhFxConcl').checked;
+  var base = (d.fluxo || []).filter(function (x) {
+    if (fp && x.plat !== fp) return false;
+    if (fpr && x.proc !== fpr) return false;
+    if (x.tipo === 'demanda' && x.dias !== null && x.dias > hz) return false;
+    if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep].join(' ').toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+  // funil: quantas estão paradas em cada etapa (sem o filtro de etapa)
+  var cont = [], atras = [];
+  for (var i = 0; i <= 8; i++) { cont[i] = 0; atras[i] = 0; }
+  base.forEach(function (x) { cont[x.etapaAtual]++; if (x.alerta) atras[x.etapaAtual]++; });
+  var nomes = E.concat(['Concluído']);
+  document.getElementById('plhFunil').innerHTML = nomes.map(function (n, i) {
+    var cls = 'plh-funil-etapa' + (plhFx.etapa === i ? ' ativo' : '') + (cont[i] ? '' : ' zero') + (i === 8 ? ' fim' : '');
+    var dica = i === 1 ? 'Ainda sem fonte do PLANCOR' : 'Clique para ver só as que estão nesta etapa';
+    return '<div class="' + cls + '" onclick="plhFxFiltrarEtapa(' + i + ')" title="' + plhE(dica) + '"><span class="num">' + (i + 1) + '</span>' +
+      '<div class="n">' + (i === 1 ? '–' : cont[i]) + '</div><div class="t">' + plhE(n) + '</div>' +
+      '<div class="a">' + (atras[i] ? atras[i] + ' atrasada' + (atras[i] > 1 ? 's' : '') : '') + '</div></div>';
+  }).join('');
+
+  var lista = base.filter(function (x) {
+    if (plhFx.etapa !== null) return x.etapaAtual === plhFx.etapa;
+    return concl || x.etapaAtual < 8;
+  });
+  document.getElementById('plhFxCount').textContent = lista.length + ' inspeç' + (lista.length === 1 ? 'ão' : 'ões') +
+    (plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
+  var icone = { ok: '<i class="fas fa-check"></i>', atual: '<i class="fas fa-circle" style="font-size:7px"></i>',
+                alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '' };
+  document.getElementById('plhFluxoLista').innerHTML = lista.length ? lista.map(function (x) {
+    var idx = d.fluxo.indexOf(x);
+    var steps = x.etapas.map(function (e, i) {
+      var tip = E[i] + (e.info ? ': ' + e.info : '') + (e.data ? ' (' + plhDataBR(e.data) + ')' : '');
+      return '<div class="plh-step ' + e.estado + '" title="' + plhE(tip) + '"><div class="plh-dot">' + icone[e.estado] + '</div>' +
+        '<div class="l">' + plhE(E[i]) + '</div><div class="d">' + (e.data ? plhDataBR(e.data).slice(0, 5) + '/' + e.data.slice(2, 4) : '') + '</div></div>';
+    }).join('');
+    var atualE = x.etapaAtual < 8 ? x.etapas[x.etapaAtual] : null;
+    var info = x.etapaAtual >= 8 ? '<b>Concluído</b> · ' + plhE(x.situacao)
+      : '<b>' + plhE(E[x.etapaAtual]) + ':</b> ' + plhE(atualE.info || x.situacao);
+    var t = plhTarefaDe(x.chave);
+    var tarefa = t
+      ? '<span class="plh-task-ok" onclick="editTaskById(\'' + plhE(t.id) + '\')"><i class="fas fa-circle-check"></i> Tarefa: ' + plhE(t.bucket) + '</span>'
+      : '<button class="btn btn-secondary" style="padding:5px 9px;font-size:12px;" onclick="plhCriarTarefaFluxo(' + idx + ')" title="Criar tarefa no FlowTask"><i class="fas fa-plus"></i> Tarefa</button>';
+    var prazo = x.prazo
+      ? '<span class="pz">' + (x.tipo === 'demanda' ? 'Vence ' : 'Prazo PATEC ') + plhDataBR(x.prazo) + '</span>' +
+        (x.etapaAtual < 8 ? plhChip(x.dias < 0 ? '1 - ' + (-x.dias) + ' d de atraso' : x.dias <= 30 ? '2 - ' + x.dias + ' dias' : x.dias <= 90 ? '3 - ' + x.dias + ' dias' : '4 - ' + x.dias + ' dias') : '')
+      : '<span class="pz">' + (x.tipo === 'execucao' ? 'Sem PATEC' : '') + '</span>';
+    var meta = [x.proc, x.uep ? 'UEP ' + x.uep : '', x.plat, x.os ? 'OS ' + x.os : '', x.patec || ''].filter(String)
+      .map(function (m) { return '<span>' + plhE(m) + '</span>'; }).join('');
+    var nomeObj = x.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(x.objId) + '\')">' + plhE(x.objeto) + '</span>' : plhE(x.objeto);
+    return '<div class="plh-fx' + (x.alerta && x.etapaAtual < 8 ? ' alerta' : '') + '">' +
+      '<div class="plh-fx-obj"><div class="o">' + nomeObj + '</div><div class="c">' + plhE(x.comp) + '</div><div class="m">' + meta + '</div></div>' +
+      '<div><div class="plh-steps">' + steps + '</div><div class="plh-fx-info">' + info + '</div></div>' +
+      '<div class="plh-fx-dir">' + prazo + tarefa + '</div></div>';
+  }).join('') : '<div class="empty-state"><i class="fas fa-bars-progress"></i><h3>Nenhuma inspeção com esses filtros</h3></div>';
+}
+
 /* ---------------- PENDÊNCIAS ---------------- */
 function plhPrepararFiltros() {
   var d = plh.data;
@@ -363,6 +519,9 @@ function plhPrepararFiltros() {
   opt('plhFPlat', 'Todas as plataformas', d.plataformas);
   opt('plhFOrigem', 'Todas as origens', ['Inspeção de duto', 'RT', 'PATEC', 'Jaqueta']);
   opt('plhFUrg', 'Todas as urgências', PLH_URG);
+  var unicos = function (arr) { return arr.filter(function (v, i) { return v && arr.indexOf(v) === i; }).sort(); };
+  opt('plhFxPlat', 'Todas as plataformas', unicos((d.fluxo || []).map(function (x) { return x.plat; })));
+  opt('plhFxProc', 'Todos os procedimentos', unicos((d.fluxo || []).map(function (x) { return x.proc; })));
   var sp = document.getElementById('plhSelPlat'), atualP = sp.value;
   sp.innerHTML = '<option value="">Escolha a plataforma...</option>' + d.plataformas.map(function (p) { return '<option>' + plhE(p) + '</option>'; }).join('');
   sp.value = atualP;
@@ -413,8 +572,15 @@ function plhRenderPend() {
     : '<tr><td colspan="10"><div class="empty-state"><i class="fas fa-circle-check"></i><h3>Nenhuma pendência com esses filtros</h3></div></td></tr>';
 }
 
-function plhCriarTarefa(idx) {
-  var p = plh.data.pend[idx];
+function plhCriarTarefa(idx) { plhNovaTarefa(plh.data.pend[idx]); }
+function plhCriarTarefaFluxo(idx) {
+  var x = plh.data.fluxo[idx];
+  if (!x) return;
+  var etapa = x.etapaAtual < 8 ? plh.data.etapasFluxo[x.etapaAtual] : 'Concluído';
+  plhNovaTarefa({ atividade: x.proc + ' · ' + etapa + ' (' + x.situacao + ')', objeto: x.objeto, comp: x.comp,
+                  plat: x.plat, prazo: x.prazo, urg: x.alerta ? '1' : '3', chave: x.chave });
+}
+function plhNovaTarefa(p) {
   if (!p) return;
   openTaskModal();
   document.getElementById('modalTitle').textContent = 'Nova Tarefa (PLH)';
