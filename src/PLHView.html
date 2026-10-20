@@ -228,12 +228,6 @@
       <button class="btn-clear-filters" onclick="plhFxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
       <span id="plhFxCount" class="plh-muted" style="margin-left:auto;"></span>
     </div>
-    <div class="stats-grid plh-kpis" id="plhFxKpis"></div>
-    <div class="plh-fx-paineis">
-      <div class="chart-card" id="plhFxMatriz"></div>
-      <div class="chart-card" id="plhFxPatec"></div>
-    </div>
-    <div class="dashboard-section-title"><i class="fas fa-bars-progress" style="color:#1976d2"></i> Etapas e detalhe por inspeção</div>
     <div class="plh-funil" id="plhFunil"></div>
     <div class="plh-legenda">
       <span><i class="b" style="background:#27ae60;border-color:#27ae60"></i> Feito</span>
@@ -817,9 +811,9 @@ function plhRenderFluxo() {
     return true;
   };
   var base = (d.fluxo || []).filter(function (x) { return passa(x, false); });
-  plhFxRenderKpis(base);
-  plhFxRenderMatriz((d.fluxo || []).filter(function (x) { return passa(x, true); }), fp, fpr, modoPlat);
-  plhFxRenderPatec(base);
+  // Resumo, quadro plataforma × procedimento e bloco de PATEC (plhFxRenderKpis/Matriz/Patec)
+  // ficam guardados no código para uma versão melhor depois; fora da tela por enquanto.
+  plhFx.grupo = null;
   // funil: quantas estão paradas em cada etapa (sem o filtro de etapa)
   var cont = [], atras = [];
   for (var i = 0; i <= 8; i++) { cont[i] = 0; atras[i] = 0; }
