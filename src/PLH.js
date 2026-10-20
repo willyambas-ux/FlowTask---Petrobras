@@ -21,7 +21,7 @@ var PLH_FONTES = [
   { chave: 'Historico',     aba: 'SRC_Historico',     sistema: 'ISUB',  exige: ['patec aplic.', 'prazo emissao patec'] },
   { chave: 'Interligacoes', aba: 'SRC_Interligacoes', sistema: 'CIDR',  exige: ['inst. origem', 'inst. destino'] }
 ];
-var PLH_ABA_JAQUETAS = 'Inspecoes_Jaqueta';
+var PLH_ABA_JAQUETAS = 'Jaquetas'; // controle próprio, mantido direto na planilha
 
 /* Colunas por posição (o GIDES repete nomes como "BDIEP" e "Situação"). */
 var PLH_COLS = {
@@ -158,7 +158,8 @@ function plhLerFonte_(ss, f) {
   return { info: info, rows: rows };
 }
 
-/** Inspecoes_Jaqueta: lida pelo nome do cabeçalho (é controle próprio e pode ganhar colunas). */
+/** Aba Jaquetas: lida pelo nome do cabeçalho (é controle próprio e pode ganhar colunas).
+ *  Uma linha por plataforma × zona (Emersa/Submersa) × nível (N1/N2). */
 function plhLerJaquetas_(ss) {
   var props = PropertiesService.getDocumentProperties();
   var info = { base: 'Jaquetas', sistema: 'Controle próprio', aba: PLH_ABA_JAQUETAS, linhas: 0,
@@ -168,29 +169,40 @@ function plhLerJaquetas_(ss) {
   var vals = sh.getDataRange().getValues();
   if (vals.length < 2) { info.erro = 'Aba vazia'; return { info: info, rows: [] }; }
   var cab = vals[0].map(plhNorm_);
-  var col = function (nome) { return cab.indexOf(nome); };
-  var ix = {
-    plataforma: col('plataforma'), nivel: col('tipo inspecao'), plano: col('plano'),
-    perDias: col('periodicidade dias'), ultima: col('ultima inspecao'), proxima: col('proxima inspecao'),
-    lote: col('lote inspecao'), atual: col('atual/final'), status: col('status'),
-    obs: col('observacao'), juntas: col('juntas criticas')
+  var col = function () {
+    for (var i = 0; i < arguments.length; i++) { var k = cab.indexOf(arguments[i]); if (k >= 0) return k; }
+    return -1;
   };
-  if (ix.plataforma < 0 || ix.ultima < 0) { info.erro = 'Cabeçalho não confere'; return { info: info, rows: [] }; }
+  var ix = {
+    uf: col('uf'), plataforma: col('plataforma'), acesso: col('acesso'),
+    zona: col('zona', 'inspecao'), nivel: col('nivel'), plano: col('plano'),
+    statusPlano: col('status do plano'), perDias: col('periodicidade (dias)', 'periodicidade dias'),
+    ordem: col('ordem'), ultima: col('ultima inspecao'), lote: col('lote de controle', 'lote inspecao'),
+    du: col('du/rl aplicado', 'aplicar du ou rl'), proxima: col('proxima inspecao'),
+    proxOS: col('proxima os', 'proxima os.'), juntas: col('juntas criticas'),
+    obs: col('observacao'), acoes: col('acoes')
+  };
+  if (ix.plataforma < 0 || ix.ultima < 0 || ix.nivel < 0) {
+    info.erro = 'Cabeçalho não confere (Plataforma, Nível e Última inspeção são obrigatórios)';
+    return { info: info, rows: [] };
+  }
   var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
   var rows = [];
   for (var i = 1; i < vals.length; i++) {
     var r = vals[i];
     if (!plhTxt_(g(r, 'plataforma'))) continue;
+    var zona = plhTxt_(g(r, 'zona')), niv = plhTxt_(g(r, 'nivel'));
     rows.push({
-      Plataforma: plhTxt_(g(r, 'plataforma')), Nivel: plhTxt_(g(r, 'nivel')), Plano: plhTxt_(g(r, 'plano')),
-      Periodicidade_Dias: plhNum_(g(r, 'perDias')), Dt_Ultima: plhData_(g(r, 'ultima')),
-      Dt_Proxima: plhData_(g(r, 'proxima')), Lote: plhTxt_(g(r, 'lote')), Atual: plhTxt_(g(r, 'atual')),
-      Status_Manual: plhTxt_(g(r, 'status')), Observacao: plhTxt_(g(r, 'obs')),
-      Juntas_Criticas: plhTxt_(g(r, 'juntas'))
+      UF: plhTxt_(g(r, 'uf')), Plataforma: plhTxt_(g(r, 'plataforma')), Acesso: plhTxt_(g(r, 'acesso')),
+      Zona: zona, Niv: niv, Nivel: (niv + ' ' + zona).trim(),
+      Plano: plhTxt_(g(r, 'plano')), Status_Plano: plhTxt_(g(r, 'statusPlano')),
+      Periodicidade_Dias: plhNum_(g(r, 'perDias')), Ordem: plhTxt_(g(r, 'ordem')),
+      Dt_Ultima: plhData_(g(r, 'ultima')), Lote: plhTxt_(g(r, 'lote')), DU: plhTxt_(g(r, 'du')),
+      Dt_Proxima: plhData_(g(r, 'proxima')), Prox_OS: plhTxt_(g(r, 'proxOS')),
+      Juntas_Criticas: plhTxt_(g(r, 'juntas')), Observacao: plhTxt_(g(r, 'obs')), Acoes: plhTxt_(g(r, 'acoes'))
     });
   }
   info.ok = true;
-  info.temJuntas = ix.juntas >= 0;
   return { info: info, rows: rows };
 }
 
@@ -369,8 +381,8 @@ function getPlhData() {
       var v = r[c];
       novo[c] = (v === '' || v === null || v === undefined) ? base[c] : v;
     });
-    // observação e status manual descrevem a inspeção atual: não herdar
-    novo.Observacao = r.Observacao; novo.Status_Manual = r.Status_Manual; novo.Lote = r.Lote;
+    // observação, ações e lote descrevem a inspeção atual: não herdar
+    novo.Observacao = r.Observacao; novo.Acoes = r.Acoes; novo.Lote = r.Lote;
     jaqMap[k] = novo;
   });
   var jaquetas = Object.keys(jaqMap).sort().map(function (k) {
@@ -378,9 +390,10 @@ function getPlhData() {
     var calc = (r.Dt_Ultima && r.Periodicidade_Dias) ? new Date(r.Dt_Ultima.getTime() + r.Periodicidade_Dias * 86400000) : null;
     var ref = r.Dt_Proxima || calc;
     var dias = plhDias_(ref, hoje);
+    // Sem última inspeção: vale a próxima programada (SAP); sem nenhuma das duas, está vencida.
     var status = !r.Plano ? 'Sem plano cadastrado'
-      : !r.Dt_Ultima ? 'Vencida (sem registro)'
-      : r.Dt_Ultima > hoje ? 'Verificar data (futura)'
+      : (!r.Dt_Ultima && !ref) ? 'Vencida (sem registro)'
+      : (r.Dt_Ultima && r.Dt_Ultima > hoje) ? 'Verificar data (futura)'
       : plhStatusPrazo_(dias, PLH_JANELA_PLANEJ);
     var vencida = status.indexOf('Vencida') === 0;
     var juntas = !!r.Juntas_Criticas;
@@ -389,9 +402,11 @@ function getPlhData() {
     return {
       plat: platJaq(r.Plataforma), plataforma: r.Plataforma, nivel: r.Nivel, plano: r.Plano,
       per: r.Periodicidade_Dias, ult: plhIso_(r.Dt_Ultima), prox: plhIso_(ref), dias: dias, status: status,
-      prio: prio, juntas: r.Juntas_Criticas, obs: r.Observacao,
-      faltaDU: r.Status_Manual.toUpperCase().indexOf('FALTA DU') >= 0,
-      divergencia: !!(r.Dt_Proxima && calc && Math.abs(r.Dt_Proxima - calc) > 3 * 86400000)
+      prio: prio, juntas: r.Juntas_Criticas, obs: r.Observacao, acoes: r.Acoes,
+      uf: r.UF, acesso: r.Acesso, zona: r.Zona, niv: r.Niv, statusPlano: r.Status_Plano,
+      ordem: r.Ordem, lote: r.Lote, proxOS: r.Prox_OS, semRegistro: !r.Dt_Ultima,
+      faltaDU: !!r.Dt_Ultima && plhNorm_(r.DU) !== 'sim',
+      reprogramada: !!(r.Dt_Proxima && calc && Math.abs(r.Dt_Proxima - calc) > 3 * 86400000)
     };
   });
 
@@ -421,8 +436,10 @@ function getPlhData() {
   jaquetas.forEach(function (j) {
     if (['1 - Crítica', '2 - Alta', '3 - Média'].indexOf(j.prio) < 0) return;
     push({ origem: 'Jaqueta', plat: j.plat, objId: '', objeto: 'Jaqueta ' + j.plataforma, comp: j.nivel,
-           atividade: 'Inspeção ' + j.nivel, descr: [j.obs, j.juntas ? 'Juntas críticas: ' + j.juntas : ''].filter(String).join(' · '),
-           prazo: j.prox, dias: j.dias, situacao: j.status, ref: 'Plano ' + (j.plano || '-'),
+           atividade: 'Inspeção ' + j.nivel,
+           descr: [j.juntas ? 'Juntas críticas: ' + j.juntas : '', j.obs, j.acoes ? 'Ações: ' + j.acoes : ''].filter(String).join(' · '),
+           prazo: j.prox, dias: j.dias, situacao: j.status,
+           ref: ['Plano ' + (j.plano || '-'), j.proxOS ? 'Próx. OS ' + j.proxOS : '', j.acesso].filter(String).join(' · '),
            chave: 'JAQ ' + j.plat + ' ' + j.nivel });
   });
   pend.sort(function (a, b) {
@@ -450,8 +467,9 @@ function getPlhData() {
     }
   });
   jaquetas.forEach(function (j) {
-    if (j.status === 'Verificar data (futura)') valid.push({ objeto: 'Jaqueta ' + j.plataforma + ' ' + j.nivel, problema: 'Última inspeção com data futura' });
-    else if (j.divergencia) valid.push({ objeto: 'Jaqueta ' + j.plataforma + ' ' + j.nivel, problema: 'Próxima inspeção ≠ última + periodicidade' });
+    var nome = 'Jaqueta ' + j.plataforma + ' ' + j.nivel;
+    if (j.status === 'Verificar data (futura)') valid.push({ objeto: nome, problema: 'Última inspeção com data futura' });
+    if (j.status === 'Sem plano cadastrado') valid.push({ objeto: nome, problema: 'Sem plano de inspeção na aba Jaquetas' });
   });
 
   /* --- Plataformas --- */

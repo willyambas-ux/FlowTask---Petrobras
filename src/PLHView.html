@@ -465,10 +465,15 @@ function plhFichaPlataforma(pid) {
            ['Vencem em até 30 dias', plhConta(pend, function (p) { return p.urg.charAt(0) === '2'; })],
            ['Total de pendências', pend.length],
            ['Interligações ligadas', lig.length]]) + '</div>';
-  var tJaq = plhSecao('fa-building', '#00a085', 'Jaqueta', ['Nível', 'Última', 'Próxima', 'Dias', 'Situação', 'Prioridade', 'Observação'],
-    jaq.map(function (j) {
-      return [plhE(j.nivel), plhDataBR(j.ult), plhDataBR(j.prox), plhDiasTxt(j.dias), plhStatusChip(j.status) + (j.faltaDU ? ' <span class="plh-chip plh-u5">Falta DU</span>' : ''),
-              plhE(j.prio), plhE([j.juntas ? 'Juntas críticas: ' + j.juntas : '', j.obs].filter(String).join(' · '))];
+  var tJaq = plhSecao('fa-building', '#00a085', 'Jaqueta' + (jaq.length && jaq[0].acesso ? ' · ' + jaq[0].acesso : ''),
+    ['Zona', 'Nível', 'Última', 'Próxima', 'Dias', 'Situação', 'Prioridade', 'Próx. OS', 'Juntas críticas', 'Observação / ações'],
+    jaq.slice().sort(function (a, b) { return (a.zona + a.niv) < (b.zona + b.niv) ? -1 : 1; }).map(function (j) {
+      return [plhE(j.zona), plhE(j.niv), plhDataBR(j.ult),
+              plhDataBR(j.prox) + (j.reprogramada ? ' <span class="plh-muted" title="Diferente de última + periodicidade">(reprogramada)</span>' : ''),
+              plhDiasTxt(j.dias),
+              plhStatusChip(j.status) + (j.faltaDU ? ' <span class="plh-chip plh-u5">Falta DU</span>' : ''),
+              plhE(j.prio), plhE(j.proxOS), j.juntas ? '<strong style="color:#b3261e">' + plhE(j.juntas) + '</strong>' : '',
+              '<span class="plh-muted">' + plhE([j.obs, j.acoes ? 'Ações: ' + j.acoes : ''].filter(String).join(' · ')) + '</span>'];
     }), 'Sem controle de jaqueta para esta plataforma');
   var tLig = plhSecao('fa-route', '#1976d2', 'Interligações', ['Nome', 'Função', 'Origem', 'Destino', 'Configuração', 'Situação'],
     lig.map(function (o) {
