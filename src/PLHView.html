@@ -121,6 +121,10 @@
       <div class="search-box"><i class="fas fa-magnifying-glass"></i>
         <input type="text" id="plhFxBusca" placeholder="Buscar duto, componente, OS, PATEC..." oninput="plhRenderFluxo()"></div>
       <select class="filter-select" id="plhFxPlat" onchange="plhRenderFluxo()"></select>
+      <select class="filter-select" id="plhFxPlatModo" onchange="plhRenderFluxo()" title="Local = plataforma onde a inspeção acontece (UEP). Responsável = plataforma dona do duto.">
+        <option value="local">onde é feita (UEP)</option>
+        <option value="resp">responsável pelo duto</option>
+      </select>
       <select class="filter-select" id="plhFxProc" onchange="plhRenderFluxo()"></select>
       <select class="filter-select" id="plhFxPeriodo" onchange="plhRenderFluxo()" title="Ano do vencimento (demandas) ou da execução (inspeções já feitas)"></select>
       <label class="plh-muted" id="plhFxAntLbl" style="display:none;align-items:center;gap:6px;cursor:pointer;" title="Demandas vencidas em anos anteriores que ainda estão abertas">
@@ -428,6 +432,7 @@ function plhIrPendencias(iCard, filtro) {
 /* ---------------- FLUXO DE INSPEÇÃO ---------------- */
 function plhFxLimpar() {
   ['plhFxBusca', 'plhFxPlat', 'plhFxProc'].forEach(function (id) { document.getElementById(id).value = ''; });
+  document.getElementById('plhFxPlatModo').value = 'local';
   document.getElementById('plhFxPeriodo').value = 'prox12';
   document.getElementById('plhFxAnteriores').checked = true;
   document.getElementById('plhFxConcl').checked = false;
@@ -460,7 +465,10 @@ function plhRenderFluxo() {
     return anteriores && x.tipo === 'demanda' && ref && ref.slice(0, 4) < per && x.dias !== null && x.dias < 0;
   };
   var base = (d.fluxo || []).filter(function (x) {
-    if (fp && x.plat !== fp) return false;
+    if (fp) {
+      var modo = document.getElementById('plhFxPlatModo').value;
+      if (modo === 'resp' ? x.plat !== fp : (x.locais || [x.plat]).indexOf(fp) < 0) return false;
+    }
     if (fpr && x.proc !== fpr) return false;
     if (!noPeriodo(x)) return false;
     if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep].join(' ').toLowerCase().indexOf(q) < 0) return false;
@@ -504,7 +512,7 @@ function plhRenderFluxo() {
     if (x.prazo && x.etapaAtual < 8) prazo = plhChip(x.dias < 0 ? '1 - ' + (-x.dias) + ' d atraso' : x.dias <= 30 ? '2 - ' + x.dias + ' d' : x.dias <= 90 ? '3 - ' + x.dias + ' d' : '4 - ' + x.dias + ' d');
     var quando = x.tipo === 'demanda' ? 'Vence ' + plhDataBR(x.prazo) : 'Executada ' + plhDataBR(x.dataRef) + (x.prazo ? ' · PATEC até ' + plhDataBR(x.prazo) : '');
     var nomeObj = x.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(x.objId) + '\')">' + plhE(x.objeto) + '</span>' : plhE(x.objeto);
-    var sub = [x.proc, x.plat, x.uep ? 'UEP ' + x.uep : ''].filter(String).join(' · ');
+    var sub = [x.proc, x.uep ? 'em ' + x.uep : '', 'resp. ' + x.plat].filter(String).join(' · ');
     return '<tr class="' + (x.alerta && x.etapaAtual < 8 ? 'atraso' : '') + '">' +
       '<td class="plh-fx-n"><div class="o">' + nomeObj + '</div><div class="s" title="' + plhE(x.comp) + '">' + plhE(sub) + '</div></td>' +
       celulas +
@@ -532,7 +540,9 @@ function plhPrepararFiltros() {
   opt('plhFOrigem', 'Todas as origens', ['Inspeção de duto', 'RT', 'PATEC', 'Jaqueta']);
   opt('plhFUrg', 'Todas as urgências', PLH_URG);
   var unicos = function (arr) { return arr.filter(function (v, i) { return v && arr.indexOf(v) === i; }).sort(); };
-  opt('plhFxPlat', 'Todas as plataformas', unicos((d.fluxo || []).map(function (x) { return x.plat; })));
+  var platsFx = [];
+  (d.fluxo || []).forEach(function (x) { platsFx.push(x.plat); (x.locais || []).forEach(function (l) { platsFx.push(l); }); });
+  opt('plhFxPlat', 'Todas as plataformas', unicos(platsFx));
   opt('plhFxProc', 'Todos os procedimentos', unicos((d.fluxo || []).map(function (x) { return x.proc; })));
   var sp = document.getElementById('plhFxPeriodo'), atualPer = sp.value || 'prox12';
   var anos = unicos((d.fluxo || []).map(function (x) { return (x.dataRef || '').slice(0, 4); }));
