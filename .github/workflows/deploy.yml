@@ -24,20 +24,11 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
       - name: Enviar código
         run: clasp push --force
-      - name: Atualizar implantação (mesmo link)
+      # O FlowTask é aberto pelo link /dev, que sempre roda o último código enviado:
+      # o "clasp push" acima já basta. Se um dia usar um link /exec, defina a
+      # variável DEPLOYMENT_ID do repositório e esta etapa atualiza essa implantação.
+      - name: Atualizar implantação /exec (opcional)
+        if: ${{ vars.DEPLOYMENT_ID != '' }}
         env:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
-        run: |
-          clasp deployments | tee deployments.txt
-          if [ -n "$DEPLOYMENT_ID" ]; then
-            DEP="$DEPLOYMENT_ID"
-          else
-            # implantações versionadas (ignora a @HEAD, que é só de teste)
-            mapfile -t IDS < <(grep -v '@HEAD' deployments.txt | grep -oE 'AKfy[A-Za-z0-9_-]+' | sort -u)
-            if [ "${#IDS[@]}" -ne 1 ]; then
-              echo "::error::Encontradas ${#IDS[@]} implantações. Defina a variável DEPLOYMENT_ID do repositório com a do FlowTask."
-              exit 1
-            fi
-            DEP="${IDS[0]}"
-          fi
-          clasp deploy -i "$DEP" -d "Auto: ${GITHUB_SHA::7}"
+        run: clasp deploy -i "$DEPLOYMENT_ID" -d "Auto: ${GITHUB_SHA::7}"
