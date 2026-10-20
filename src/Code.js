@@ -1,7 +1,8 @@
 const SHEET_NAME = 'Tarefas';
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  // Template para incluir o módulo PLH.html no fim do Index.html.
+  return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('FlowTask - Sistema de Gerenciamento de Tarefas')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
