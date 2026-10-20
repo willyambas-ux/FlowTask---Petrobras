@@ -62,7 +62,7 @@
     </div>
     <div class="alerts-card">
       <div class="alerts-card-header"><i class="fas fa-database" style="color:#1976d2"></i> Fontes de dados
-        <span class="plh-muted" style="margin-left:auto;font-weight:400;">Cole os exports nas abas SRC_ da planilha e clique em Atualizar</span></div>
+        <span class="plh-muted" style="margin-left:auto;font-weight:400;">Clique na aba para abrir e colar o export; depois, Atualizar dados</span></div>
       <div class="table-container" style="box-shadow:none;border:none;border-radius:0;">
         <table class="plh-table"><thead><tr><th>Base</th><th>Sistema</th><th>Aba</th><th>Linhas</th><th>Colado em</th><th>Situação</th></tr></thead>
         <tbody id="plhFontes"></tbody></table>
@@ -137,6 +137,8 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   var header = document.querySelector('.header-right');
   if (header) {
     header.insertAdjacentHTML('afterbegin',
+      '<button class="btn btn-secondary" id="plhBtnPlanilha" style="display:none;" onclick="plhAbrirPlanilha()" title="Abrir a planilha com as abas de dados">' +
+      '<i class="fas fa-table"></i> <span class="btn-label">Planilha</span></button>' +
       '<button class="btn btn-secondary" id="plhBtnAtualizar" style="display:none;" onclick="plhCarregar(true)" title="Ler de novo as abas SRC_">' +
       '<i class="fas fa-rotate-right"></i> <span class="btn-label">Atualizar dados</span></button>');
   }
@@ -159,8 +161,10 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
       var el = document.getElementById(v + 'View');
       if (el) el.style.display = (v === currentView) ? 'block' : 'none';
     });
-    var b = document.getElementById('plhBtnAtualizar');
-    if (b) b.style.display = ehPlh ? 'inline-flex' : 'none';
+    ['plhBtnAtualizar', 'plhBtnPlanilha'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.style.display = ehPlh ? 'inline-flex' : 'none';
+    });
     var bTarefas = document.querySelector('.header-right button[onclick="loadTasks()"]');
     if (bTarefas) bTarefas.style.display = ehPlh ? 'none' : '';
     if (ehPlh) {
@@ -179,6 +183,17 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   // Carrega em segundo plano para o número de pendências aparecer no menu.
   setTimeout(function () { plhCarregar(false, true); }, 1500);
 })();
+
+/* ---------------- planilha ---------------- */
+function plhUrlAba(gid) {
+  if (!plh.data || !plh.data.planilhaUrl) return '';
+  return plh.data.planilhaUrl.split('#')[0] + (gid !== undefined && gid !== null ? '#gid=' + gid : '');
+}
+function plhAbrirPlanilha(gid) {
+  var url = plhUrlAba(gid);
+  if (!url) { showAlert('Aguarde os dados do PLH carregarem', 'error'); return; }
+  window.open(url, '_blank');
+}
 
 /* ---------------- dados ---------------- */
 function plhCarregar(forcar, silencioso) {
@@ -308,7 +323,10 @@ function plhRenderDash() {
   document.getElementById('plhFontes').innerHTML = d.fontes.map(function (f) {
     var quando = f.atualizado ? new Date(f.atualizado) : null;
     var idade = quando ? Math.floor((Date.now() - quando) / 86400000) : null;
-    return '<tr><td><strong>' + plhE(f.base) + '</strong></td><td>' + plhE(f.sistema) + '</td><td class="plh-muted">' + plhE(f.aba) + '</td>' +
+    var aba = f.gid !== undefined && f.gid !== null
+      ? '<span class="plh-link" onclick="plhAbrirPlanilha(' + Number(f.gid) + ')" title="Abrir esta aba"><i class="fas fa-arrow-up-right-from-square"></i> ' + plhE(f.aba) + '</span>'
+      : '<span class="plh-muted">' + plhE(f.aba) + '</span>';
+    return '<tr><td><strong>' + plhE(f.base) + '</strong></td><td>' + plhE(f.sistema) + '</td><td>' + aba + '</td>' +
       '<td class="plh-num">' + f.linhas + '</td>' +
       '<td>' + (quando ? quando.toLocaleDateString('pt-BR') + ' <span class="plh-muted">(' + idade + ' d)</span>' : '<span class="plh-muted">não registrado</span>') + '</td>' +
       '<td>' + (f.ok ? '<span class="plh-chip plh-u4" style="background:#e8f5e9;color:#2e7d32;">OK</span>' : '<span class="plh-chip plh-u1">' + plhE(f.erro) + '</span>') + '</td></tr>';

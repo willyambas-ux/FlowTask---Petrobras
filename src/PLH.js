@@ -21,7 +21,8 @@ var PLH_FONTES = [
   { chave: 'Historico',     aba: 'SRC_Historico',     sistema: 'ISUB',  exige: ['patec aplic.', 'prazo emissao patec'] },
   { chave: 'Interligacoes', aba: 'SRC_Interligacoes', sistema: 'CIDR',  exige: ['inst. origem', 'inst. destino'] }
 ];
-var PLH_ABA_JAQUETAS = 'Jaquetas'; // controle próprio, mantido direto na planilha
+var PLH_ABA_JAQUETAS = 'SRC_Jaquetas'; // controle próprio, mantido direto na planilha
+var PLH_ABA_JAQUETAS_ANTIGA = 'Jaquetas'; // nome anterior, aceito por compatibilidade
 
 /* Colunas por posição (o GIDES repete nomes como "BDIEP" e "Situação"). */
 var PLH_COLS = {
@@ -139,6 +140,7 @@ function plhLerFonte_(ss, f) {
                atualizado: props.getProperty('PLH_ATUALIZADO_' + f.aba) || '' };
   var sh = ss.getSheetByName(f.aba);
   if (!sh) { info.erro = 'Aba não encontrada'; return { info: info, rows: [] }; }
+  info.gid = sh.getSheetId();
   var vals = sh.getDataRange().getValues();
   if (vals.length < 2) { info.erro = 'Aba vazia: cole o export em A1'; return { info: info, rows: [] }; }
   var cab = vals[0].map(plhNorm_);
@@ -164,8 +166,9 @@ function plhLerJaquetas_(ss) {
   var props = PropertiesService.getDocumentProperties();
   var info = { base: 'Jaquetas', sistema: 'Controle próprio', aba: PLH_ABA_JAQUETAS, linhas: 0,
                ok: false, erro: '', atualizado: props.getProperty('PLH_ATUALIZADO_' + PLH_ABA_JAQUETAS) || '' };
-  var sh = ss.getSheetByName(PLH_ABA_JAQUETAS);
+  var sh = ss.getSheetByName(PLH_ABA_JAQUETAS) || ss.getSheetByName(PLH_ABA_JAQUETAS_ANTIGA);
   if (!sh) { info.erro = 'Aba não encontrada'; return { info: info, rows: [] }; }
+  info.aba = sh.getName(); info.gid = sh.getSheetId();
   var vals = sh.getDataRange().getValues();
   if (vals.length < 2) { info.erro = 'Aba vazia'; return { info: info, rows: [] }; }
   var cab = vals[0].map(plhNorm_);
@@ -485,6 +488,7 @@ function getPlhData() {
 
   return {
     geradoEm: Utilities.formatDate(new Date(), ssTimeZone(), 'dd/MM/yyyy HH:mm'),
+    planilhaUrl: ss.getUrl(),
     janela: PLH_JANELA_PLANEJ,
     fontes: fontes, plataformas: Object.keys(plats).sort(),
     objetos: objetos, plan: plan, rts: rts, patec: patec, jaquetas: jaquetas,
