@@ -20,12 +20,24 @@ jobs:
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
-          if [ -z "$CLASPRC_JSON" ]; then echo "Segredo CLASPRC_JSON ausente"; exit 1; fi
-          echo "$CLASPRC_JSON" > ~/.clasprc.json
+          if [ -z "$CLASPRC_JSON" ]; then echo "::error::Segredo CLASPRC_JSON ausente"; exit 1; fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
       - name: Enviar código
         run: clasp push --force
       - name: Atualizar implantação (mesmo link)
+        env:
+          DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
         run: |
-          DEP_ID=$(clasp deployments | grep -oE 'AKfy[A-Za-z0-9_-]+' | tail -1)
-          if [ -z "$DEP_ID" ]; then echo "Nenhuma implantação encontrada"; exit 1; fi
-          clasp deploy -i "$DEP_ID" -d "Auto: ${GITHUB_SHA::7}"
+          clasp deployments | tee deployments.txt
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            DEP="$DEPLOYMENT_ID"
+          else
+            # implantações versionadas (ignora a @HEAD, que é só de teste)
+            mapfile -t IDS < <(grep -v '@HEAD' deployments.txt | grep -oE 'AKfy[A-Za-z0-9_-]+' | sort -u)
+            if [ "${#IDS[@]}" -ne 1 ]; then
+              echo "::error::Encontradas ${#IDS[@]} implantações. Defina a variável DEPLOYMENT_ID do repositório com a do FlowTask."
+              exit 1
+            fi
+            DEP="${IDS[0]}"
+          fi
+          clasp deploy -i "$DEP" -d "Auto: ${GITHUB_SHA::7}"
