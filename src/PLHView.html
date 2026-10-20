@@ -116,6 +116,7 @@
 
   <!-- FLUXO DE INSPEÇÃO -->
   <div id="plhFluxoView" style="display:none;">
+    <div class="plh-warn" id="plhFxAviso" style="display:none;gap:8px;align-items:flex-start;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.45"></div>
     <div class="plh-funil" id="plhFunil"></div>
     <div class="filters-bar" style="border-radius:10px;border:1px solid #f0f2f5;margin-bottom:12px;">
       <div class="search-box"><i class="fas fa-magnifying-glass"></i>
@@ -456,6 +457,17 @@ function plhRenderFluxo() {
   document.getElementById('plhFxAntLbl').style.display = ehAno ? 'inline-flex' : 'none';
   var anteriores = document.getElementById('plhFxAnteriores').checked;
   var concl = document.getElementById('plhFxConcl').checked;
+  var modoPlat = document.getElementById('plhFxPlatModo').value;
+  var fICPI = (d.fontes || []).filter(function (f) { return f.base === 'ICPI (OS)'; })[0];
+  var semICPI = !fICPI || !fICPI.ok || !!fICPI.aviso;
+  var avisoEl = document.getElementById('plhFxAviso');
+  if (avisoEl) {
+    avisoEl.style.display = semICPI ? 'flex' : 'none';
+    avisoEl.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span><strong>OS e local (UEP) indisponíveis:</strong> ' +
+      plhE(fICPI ? (fICPI.aviso || fICPI.erro || '') : 'aba SRC_ICPI não encontrada') +
+      '. Enquanto isso, o filtro "onde é feita" usa a plataforma responsável. ' +
+      (fICPI && fICPI.gid !== undefined ? '<span class="plh-link" onclick="plhAbrirPlanilha(' + Number(fICPI.gid) + ')">Abrir a aba SRC_ICPI</span>' : '') + '</span>';
+  }
   var noPeriodo = function (x) {
     var ref = x.dataRef || '';
     if (per === 'todos') return true;
@@ -512,7 +524,9 @@ function plhRenderFluxo() {
     if (x.prazo && x.etapaAtual < 8) prazo = plhChip(x.dias < 0 ? '1 - ' + (-x.dias) + ' d atraso' : x.dias <= 30 ? '2 - ' + x.dias + ' d' : x.dias <= 90 ? '3 - ' + x.dias + ' d' : '4 - ' + x.dias + ' d');
     var quando = x.tipo === 'demanda' ? 'Vence ' + plhDataBR(x.prazo) : 'Executada ' + plhDataBR(x.dataRef) + (x.prazo ? ' · PATEC até ' + plhDataBR(x.prazo) : '');
     var nomeObj = x.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(x.objId) + '\')">' + plhE(x.objeto) + '</span>' : plhE(x.objeto);
-    var sub = [x.proc, x.uep ? 'em ' + x.uep : '', 'resp. ' + x.plat].filter(String).join(' · ');
+    var sub;
+    if (modoPlat === 'resp') sub = [x.proc, 'resp. ' + x.plat, x.uep ? 'feita em ' + x.uep : ''].filter(String).join(' · ');
+    else sub = [x.proc, x.uep ? 'feita em ' + x.uep : (semICPI ? 'local sem ICPI' : 'trecho / sem UEP'), 'resp. ' + x.plat].join(' · ');
     return '<tr class="' + (x.alerta && x.etapaAtual < 8 ? 'atraso' : '') + '">' +
       '<td class="plh-fx-n"><div class="o">' + nomeObj + '</div><div class="s" title="' + plhE(x.comp) + '">' + plhE(sub) + '</div></td>' +
       celulas +
