@@ -462,6 +462,7 @@ function getPlhData() {
 
   /* --- Fluxo das inspeções: demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC --- */
   var fluxo = plhMontarFluxo_(plan, src.Historico, icpi.rows, idPorNome, hoje);
+  var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
 
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
@@ -544,7 +545,7 @@ function getPlhData() {
     janela: PLH_JANELA_PLANEJ,
     fontes: fontes, plataformas: Object.keys(plats).sort(),
     objetos: objetos, plan: plan, rts: rts, patec: patec, jaquetas: jaquetas,
-    pend: pend, valid: valid, fluxo: fluxo,
+    pend: pend, valid: valid, fluxo: fluxo, icpi: icpiPainel,
     etapasFluxo: PLH_ETAPAS
   };
 }
@@ -712,4 +713,187 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
     return da - db;
   });
   return fluxo;
+}
+
+
+/* ============================================================================
+ *  ICPI SSUB: lista de ações do ano, previsões (otimista/realista/pessimista)
+ *  e projeção do indicador. Regra: objeto em dia = todas as inspeções com
+ *  relatório registrado até o vencimento. ICPI = objetos em dia / objetos com plano.
+ *  As previsões e notas ficam na aba PLH_ICPI_Acoes (gravada pelo FlowTask).
+ * ==========================================================================*/
+var PLH_ICPI_META = 62.3;
+var PLH_ABA_ACOES = 'PLH_ICPI_Acoes';
+var PLH_ACOES_COLS = ['Chave', 'Ano', 'Ação', 'Objeto', 'Procedimento', 'Lado', 'Vencimento', 'Gerência', 'Recurso',
+  'Início plan', 'Fim proj (realista)', '% Concl.', 'Status', 'Observações', 'Justificativa',
+  'Prev. Otimista', 'Prev. Realista', 'Prev. Pessimista', 'Atualizado em', 'Atualizado por'];
+var PLH_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+function plhChaveAcao_(objeto, proc, lado, ano) {
+  return [plhNorm_(objeto), plhNorm_(proc), lado || '', String(ano)].join('|');
+}
+
+function plhAbaAcoes_(ss) {
+  var sh = ss.getSheetByName(PLH_ABA_ACOES);
+  if (!sh) {
+    sh = ss.insertSheet(PLH_ABA_ACOES);
+    sh.getRange(1, 1, 1, PLH_ACOES_COLS.length).setValues([PLH_ACOES_COLS])
+      .setFontWeight('bold').setBackground('#2c3e50').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+    sh.setTabColor('#8e24aa');
+  }
+  return sh;
+}
+
+function plhLerAcoes_(sh) {
+  var vals = sh.getDataRange().getValues();
+  var cab = vals[0] || [];
+  var ix = {};
+  PLH_ACOES_COLS.forEach(function (c) { ix[c] = cab.indexOf(c); });
+  var porChave = {}, lista = [];
+  for (var i = 1; i < vals.length; i++) {
+    var r = vals[i], g = function (c) { return ix[c] < 0 ? '' : r[ix[c]]; };
+    var chave = plhTxt_(g('Chave'));
+    if (!chave) continue;
+    var pct = g('% Concl.');
+    var a = {
+      chave: chave, linha: i + 1, ano: Number(g('Ano')) || null, acao: plhTxt_(g('Ação')), objeto: plhTxt_(g('Objeto')),
+      proc: plhTxt_(g('Procedimento')), lado: plhTxt_(g('Lado')), venc: plhIso_(plhData_(g('Vencimento'))),
+      gerencia: plhTxt_(g('Gerência')), recurso: plhTxt_(g('Recurso')), inicio: plhIso_(plhData_(g('Início plan'))),
+      fim: plhIso_(plhData_(g('Fim proj (realista)'))),
+      pct: (pct === '' || pct === null) ? null
+        : typeof pct === 'number' ? (pct > 0 && pct <= 1 ? Math.round(pct * 100) : pct)  // 0,9 (formato %) ou 90
+        : plhNum_(String(pct).replace('%', '')),
+      status: plhTxt_(g('Status')), obs: plhTxt_(g('Observações')), just: plhTxt_(g('Justificativa')),
+      otim: plhTxt_(g('Prev. Otimista')), real: plhTxt_(g('Prev. Realista')), pess: plhTxt_(g('Prev. Pessimista')),
+      atualizado: plhIso_(plhData_(g('Atualizado em')))
+    };
+    porChave[chave] = a; lista.push(a);
+  }
+  return { porChave: porChave, lista: lista };
+}
+
+/** Sugestão de gerência/recurso pelo procedimento (o usuário pode trocar). */
+function plhSugestaoRecurso_(proc) {
+  return /^PID[RF]-4/i.test(proc) ? { gerencia: 'ENGI', recurso: 'Inspetor' } : { gerencia: 'SUB', recurso: 'Embarcação' };
+}
+
+function plhMontarIcpi_(ss, icpiRows, fluxo, hoje) {
+  var ano = hoje.getFullYear();
+  var fimAno = new Date(ano, 11, 31);
+  var sh = plhAbaAcoes_(ss);
+  var guardadas = plhLerAcoes_(sh);
+  var acoes = [], vistas = {}, novas = [];
+
+  var nomeAcao = function (objeto, proc, uep) { return objeto + ' - ' + proc + (uep ? ' - Lado ' + uep : ''); };
+  var mesmoLado = function (x, lado) { return !lado || (x.locais || []).indexOf(lado) >= 0; };
+
+  // inspeções do ano ainda pendentes no ICPI (inclui vencidas)
+  icpiRows.forEach(function (r) {
+    if (!r.venc || r.venc > fimAno) return;
+    var lado = plhPlataforma_(r.uep);
+    var chave = plhChaveAcao_(r.objeto, r.proc, lado, r.venc.getFullYear());
+    if (vistas[chave]) return;
+    vistas[chave] = true;
+    var g = guardadas.porChave[chave];
+    if (!g) novas.push([chave, r.venc.getFullYear(), nomeAcao(r.objeto, r.proc, r.uep), r.objeto, r.proc, r.uep, r.venc]);
+    acoes.push({ chave: chave, ano: r.venc.getFullYear(), acao: nomeAcao(r.objeto, r.proc, r.uep), objeto: r.objeto, proc: r.proc,
+                 lado: lado, ladoTxt: r.uep, venc: plhIso_(r.venc), os: r.os, statusOS: r.statusOS, pendenteICPI: true, g: g || null });
+  });
+  // ações guardadas do ano que já saíram do ICPI (concluídas ou replanejadas)
+  guardadas.lista.forEach(function (g) {
+    if (vistas[g.chave] || g.ano !== ano) return;
+    vistas[g.chave] = true;
+    acoes.push({ chave: g.chave, ano: g.ano, acao: g.acao, objeto: g.objeto, proc: g.proc, lado: plhPlataforma_(g.lado),
+                 ladoTxt: g.lado, venc: g.venc, os: '', statusOS: '', pendenteICPI: false, g: g });
+  });
+  if (novas.length) {
+    var ini = Math.max(sh.getLastRow(), 1) + 1;
+    sh.getRange(ini, 1, novas.length, 7).setValues(novas);
+  }
+
+  // situação automática pelo fluxo (execução e relatório no ISUB / OS)
+  acoes.forEach(function (a) {
+    var execs = fluxo.filter(function (x) {
+      return x.tipo === 'execucao' && plhNorm_(x.objeto) === plhNorm_(a.objeto) && plhNorm_(x.proc) === plhNorm_(a.proc) &&
+        mesmoLado(x, a.lado) && (x.dataRef || '').slice(0, 4) === String(a.ano);
+    }).sort(function (p, q) { return p.dataRef < q.dataRef ? 1 : -1; });
+    var dem = fluxo.filter(function (x) {
+      return x.tipo === 'demanda' && plhNorm_(x.objeto) === plhNorm_(a.objeto) && plhNorm_(x.proc) === plhNorm_(a.proc) &&
+        x.prazo === a.venc && mesmoLado(x, a.lado);
+    })[0];
+    var ex = execs[0];
+    var cad = ex && ex.etapas[4] && ex.etapas[4].estado === 'ok' ? ex.etapas[4].data : '';
+    if (ex && cad && (!a.pendenteICPI || cad >= (a.ano + '-01-01'))) {
+      a.auto = { situacao: 'concluida', etapa: 'Relatório no ISUB em ' + plhIsoBR_(cad), pct: 100, status: 'Concluido', data: cad };
+    } else if (ex) {
+      a.auto = { situacao: 'executada', etapa: 'Executada em ' + plhIsoBR_(ex.dataRef) + ', aguardando relatório no ISUB', pct: 90, status: 'Em andamento', data: ex.dataRef };
+    } else if (!a.pendenteICPI) {
+      a.auto = { situacao: 'saiu', etapa: 'Fora do ICPI do ano (já atendida ou replanejada)', pct: null, status: '', data: '' };
+    } else {
+      var etapa = dem ? dem.situacao : (a.os ? 'OS ' + a.os + (a.statusOS ? ' · ' + a.statusOS : '') : 'Sem OS');
+      a.auto = { situacao: dem && dem.etapaAtual === 3 ? 'barco' : 'pendente', etapa: etapa, pct: 0, status: 'Em andamento', data: '' };
+    }
+    var sug = plhSugestaoRecurso_(a.proc);
+    var g = a.g || {};
+    a.gerencia = g.gerencia || sug.gerencia;
+    a.recurso = g.recurso || sug.recurso;
+    a.inicio = g.inicio || ''; a.fim = g.fim || '';
+    a.pct = (g.pct !== null && g.pct !== undefined && g.pct !== '') ? g.pct : a.auto.pct;
+    a.status = a.auto.situacao === 'concluida' ? 'Concluido' : (g.status || a.auto.status);
+    a.obs = g.obs || ''; a.just = g.just || '';
+    a.otim = g.otim || ''; a.real = g.real || ''; a.pess = g.pess || '';
+    a.atualizado = g.atualizado || '';
+    a.concluida = a.auto.situacao === 'concluida' || plhNorm_(a.status).indexOf('conclu') === 0;
+    var d = a.venc ? plhDias_(new Date(a.venc + 'T00:00:00'), hoje) : null;
+    a.dias = d;
+    a.prazo = d === null ? '' : d < 0 ? 'Venc.' : d <= 90 ? '<90d' : '>90d';
+    delete a.g;
+  });
+  acoes.sort(function (p, q) { return (p.venc || '9') < (q.venc || '9') ? -1 : (p.venc || '9') > (q.venc || '9') ? 1 : (p.acao < q.acao ? -1 : 1); });
+
+  // objetos do indicador e as inspeções de cada um (para a projeção)
+  var objs = {};
+  icpiRows.forEach(function (r) {
+    var o = objs[r.objeto] = objs[r.objeto] || { objeto: r.objeto, grupo: r.grupo, itens: [] };
+    var lado = plhPlataforma_(r.uep);
+    o.itens.push({ venc: plhIso_(r.venc), chave: r.venc ? plhChaveAcao_(r.objeto, r.proc, lado, r.venc.getFullYear()) : '' });
+  });
+  return {
+    meta: PLH_ICPI_META, ano: ano, hoje: plhIso_(hoje), meses: PLH_MESES,
+    objetos: Object.keys(objs).map(function (k) { return objs[k]; }), acoes: acoes,
+    abaGid: sh.getSheetId()
+  };
+}
+
+/** Grava as previsões e notas de uma ação (chamado pelo formulário da tela ICPI). */
+function salvarIcpiAcao(a) {
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = plhAbaAcoes_(ss);
+    var vals = sh.getDataRange().getValues();
+    var cab = vals[0];
+    var col = function (c) { return cab.indexOf(c) + 1; };
+    var linha = 0;
+    for (var i = 1; i < vals.length; i++) if (plhTxt_(vals[i][col('Chave') - 1]) === a.chave) { linha = i + 1; break; }
+    if (!linha) {
+      linha = Math.max(sh.getLastRow(), 1) + 1;
+      sh.getRange(linha, 1, 1, 7).setValues([[a.chave, a.ano, a.acao, a.objeto, a.proc, a.ladoTxt || '',
+        a.venc ? new Date(a.venc + 'T12:00:00') : '']]);
+    }
+    var dataOuVazio = function (iso) { return iso ? new Date(iso + 'T12:00:00') : ''; };
+    var campos = {
+      'Gerência': a.gerencia || '', 'Recurso': a.recurso || '', 'Início plan': dataOuVazio(a.inicio),
+      'Fim proj (realista)': dataOuVazio(a.fim), '% Concl.': (a.pct === null || a.pct === '' || a.pct === undefined) ? '' : Number(a.pct),
+      'Status': a.status || '', 'Observações': a.obs || '', 'Justificativa': a.just || '',
+      'Prev. Otimista': a.otim || '', 'Prev. Realista': a.real || '', 'Prev. Pessimista': a.pess || '',
+      'Atualizado em': new Date(), 'Atualizado por': (Session.getActiveUser().getEmail() || '').split('@')[0]
+    };
+    Object.keys(campos).forEach(function (c) { if (col(c) > 0) sh.getRange(linha, col(c)).setValue(campos[c]); });
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
 }

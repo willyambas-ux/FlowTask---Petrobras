@@ -37,6 +37,40 @@
 .plh-kv .plh-k{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ac;margin-bottom:3px}
 .plh-section{margin-bottom:24px}
 .plh-section .table-container{border-radius:0 0 10px 10px;box-shadow:none;border:none;border-top:1px solid #f0f2f5}
+/* ---- ICPI SSUB ---- */
+.plh-icpi-kpis{display:grid;grid-template-columns:1.1fr 1.4fr 1.4fr;gap:16px;margin-bottom:16px}
+.plh-icpi-k{background:#fff;border:1px solid #f0f2f5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);padding:16px 18px}
+.plh-icpi-k .t{font-size:12px;color:#7b8794;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.plh-icpi-k .big{font-size:34px;font-weight:700;color:#2c3e50;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.plh-icpi-k .s{font-size:12px;color:#7b8794;margin-top:4px}
+.plh-icpi-cen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.plh-icpi-cen div{border-radius:8px;padding:8px 10px;background:#f8f9fa}
+.plh-icpi-cen b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.plh-icpi-cen span{font-size:11px;color:#7b8794}
+.plh-icpi-cen .ok b{color:#2e7d32}.plh-icpi-cen .nok b{color:#b3261e}
+.plh-icpi-graf{margin-bottom:16px}
+.plh-icpi-graf .chart-wrapper{height:300px}
+.plh-icpi-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.plh-icpi-tab td{font-size:12.5px;vertical-align:top;padding:9px 10px}
+.plh-icpi-tab tr.concl td{background:#fbfdfb;color:#7b8794}
+.plh-icpi-tab .a{font-weight:600;color:#2c3e50}
+.plh-icpi-tab .e{font-size:11.5px;color:#9aa0ac;margin-top:2px}
+.plh-prev{display:inline-block;min-width:62px;text-align:center;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;background:#eef1f4;color:#5f6b7c}
+.plh-prev.nao{background:#fde4e2;color:#b3261e}
+.plh-prev.vazio{background:none;color:#c0c6cf;border:1px dashed #d5dae1}
+.plh-desat{color:#b3261e;font-weight:600}
+.plh-modal-bg{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.plh-modal{background:#fff;border-radius:12px;width:100%;max-width:720px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.plh-modal h3{font-size:16px;padding:18px 22px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px}
+.plh-modal .corpo{padding:18px 22px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.plh-modal .corpo .full{grid-column:1/-1}
+.plh-modal label{display:block;font-size:12px;font-weight:600;color:#5f6b7c;margin-bottom:4px}
+.plh-modal input,.plh-modal select,.plh-modal textarea{width:100%;padding:8px 10px;border:1px solid #e0e4ea;border-radius:6px;font-size:13px;font-family:inherit;background:#fff}
+.plh-modal textarea{min-height:70px;resize:vertical}
+.plh-modal .rodape{padding:14px 22px;border-top:1px solid #f0f2f5;display:flex;justify-content:flex-end;gap:8px}
+.plh-modal .info{background:#f5f7fa;border-radius:8px;padding:8px 12px;font-size:12.5px;color:#5f6b7c}
+@media(max-width:900px){.plh-icpi-kpis{grid-template-columns:1fr}.plh-modal .corpo{grid-template-columns:1fr}}
+
 /* ---- Fluxo de inspeção ---- */
 .plh-kpis{grid-template-columns:repeat(3,1fr);margin-bottom:16px}
 .plh-kpis .stat-card.ativo{border-color:#1976d2;box-shadow:0 0 0 2px #cfe3fb}
@@ -149,6 +183,31 @@
     </div>
   </div>
 
+  <!-- ICPI SSUB -->
+  <div id="plhIcpiView" style="display:none;">
+    <div class="plh-icpi-kpis" id="plhIcpiKpis"></div>
+    <div class="chart-card plh-icpi-graf">
+      <h4><i class="fas fa-chart-line" style="color:#1976d2"></i> ICPI previsto no fim de cada mês
+        <span class="plh-muted" style="margin-left:auto;font-weight:400">pelas suas previsões de conclusão (relatório registrado)</span></h4>
+      <div class="chart-wrapper"><canvas id="plhIcpiChart"></canvas></div>
+    </div>
+    <div class="plh-icpi-bar">
+      <div class="dashboard-section-title" style="margin:0"><i class="fas fa-list-check" style="color:#8e24aa"></i> Inspeções do ICPI até o fim do ano</div>
+      <span class="plh-muted" id="plhIcpiCount"></span>
+      <label class="plh-muted" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="plhIcpiConcl" checked onchange="plhRenderIcpi()"> Mostrar concluídas</label>
+      <button class="btn btn-secondary" onclick="plhIcpiAbrirAba()"><i class="fas fa-table"></i> <span class="btn-label">Aba</span></button>
+      <button class="btn btn-primary" onclick="plhIcpiCopiar()"><i class="fas fa-copy"></i> Copiar para a planilha da gerência</button>
+    </div>
+    <div class="table-container">
+      <table class="plh-icpi-tab">
+        <thead><tr><th>Inspeção</th><th>Venc.</th><th>Prazo</th><th>Recurso</th><th>% Concl.</th><th>Status</th>
+          <th>Otimista</th><th>Realista</th><th>Pessimista</th><th>Atualizado</th><th></th></tr></thead>
+        <tbody id="plhIcpiBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- FLUXO DE INSPEÇÃO -->
   <div id="plhFluxoView" style="display:none;">
     <div class="plh-warn" id="plhFxAviso" style="display:none;gap:8px;align-items:flex-start;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.45"></div>
@@ -226,7 +285,7 @@
 <script>
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
-var PLH_VIEWS = ['plhDash', 'plhFluxo', 'plhPend', 'plhFicha'];
+var PLH_VIEWS = ['plhDash', 'plhIcpi', 'plhFluxo', 'plhPend', 'plhFicha'];
 var plhFx = { etapa: null, grupo: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
 var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
@@ -237,6 +296,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   if (menu) {
     var html = '<div class="menu-section-title">PLH SSUB</div>' +
       '<a href="#" class="menu-item" data-view="plhDash"><i class="fas fa-water"></i><span class="label">Visão Geral</span></a>' +
+      '<a href="#" class="menu-item" data-view="plhIcpi"><i class="fas fa-gauge-high"></i><span class="label">ICPI SSUB</span></a>' +
       '<a href="#" class="menu-item" data-view="plhFluxo"><i class="fas fa-bars-progress"></i><span class="label">Fluxo de inspeção</span></a>' +
       '<a href="#" class="menu-item" data-view="plhPend"><i class="fas fa-list-ol"></i><span class="label">Pendências</span>' +
         '<span class="menu-badge" id="plhBadge" style="background:#E5534B;display:none;">0</span></a>' +
@@ -244,7 +304,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
     menu.insertAdjacentHTML('beforeend', html);
   }
   var area = document.querySelector('.content-area');
-  ['plhDashView', 'plhFluxoView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
+  ['plhDashView', 'plhIcpiView', 'plhFluxoView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
     var el = document.getElementById(id);
     if (area && el) area.appendChild(el);
   });
@@ -260,6 +320,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   var origTitulo = updatePageTitle;
   updatePageTitle = function () {
     var t = { plhDash: ['PLH SSUB', 'Integridade de dutos, interligações e jaquetas'],
+              plhIcpi: ['PLH SSUB · ICPI SSUB', 'Cumprimento do plano de inspeção: hoje, previsões e projeção até o fim do ano'],
               plhFluxo: ['PLH SSUB · Fluxo de inspeção', 'Demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC'],
               plhPend: ['PLH SSUB · Pendências', 'Lista única de trabalho, da mais urgente para a menos'],
               plhFicha: ['PLH SSUB · Fichas', 'Tudo sobre uma plataforma ou um objeto'] }[currentView];
@@ -333,7 +394,7 @@ function plhCarregar(forcar, silencioso) {
 function plhMostrarCarregando() {
   PLH_VIEWS.forEach(function (v) {
     if (v !== currentView) return;
-    var alvo = { plhDash: 'plhStats', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
+    var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
     var el = document.getElementById(alvo);
     var html = '<div class="loading"><div class="spinner"></div><p>Lendo as abas do PLH...</p></div>';
     if (el) el.innerHTML = v === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
@@ -343,7 +404,7 @@ function plhMostrarCarregando() {
 function plhMostrarErro() {
   var html = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>Não foi possível ler os dados</h3><p>' +
     escapeHtml(plh.erro) + '</p></div>';
-  var alvo = { plhDash: 'plhStats', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
+  var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
   var el = document.getElementById(alvo);
   if (el) el.innerHTML = currentView === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
 }
@@ -359,6 +420,7 @@ function plhAtualizarBadge() {
 function plhRender() {
   if (currentView === 'plhDash') plhRenderDash();
   else if (currentView === 'plhFluxo') plhRenderFluxo();
+  else if (currentView === 'plhIcpi') plhRenderIcpi();
   else if (currentView === 'plhPend') plhRenderPend();
   else if (currentView === 'plhFicha') plhRenderFicha();
 }
@@ -469,6 +531,210 @@ function plhIrPendencias(iCard, filtro) {
   document.getElementById('plhFOrigem').value = f.origem || '';
   document.getElementById('plhFUrg').value = f.urg || '';
   updatePageTitle(); updateViewVisibility(); plhRenderPend();
+}
+
+/* ---------------- ICPI SSUB ---------------- */
+var PLH_CENARIOS = [
+  { k: 'otim', nome: 'Otimista', cor: '#27ae60' },
+  { k: 'real', nome: 'Realista', cor: '#1976d2' },
+  { k: 'pess', nome: 'Pessimista', cor: '#E5534B' }
+];
+var PLH_MES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function plhSemAcento(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+/** "outubro" / "out" / "10" / "10/2026" → mês 1..12; "-" → 0 (não realiza); vazio → null. */
+function plhMesPrev(t) {
+  var v = plhSemAcento(t);
+  if (!v) return null;
+  if (/^[-–—x]$|nao realiza|nao/.test(v)) return 0;
+  var m = v.match(/^(\d{1,2})(\/\d{2,4})?$/);
+  if (m) return Number(m[1]) >= 1 && Number(m[1]) <= 12 ? Number(m[1]) : null;
+  for (var i = 0; i < 12; i++) if (v.indexOf(plhSemAcento(PLH_MES_ABREV[i])) === 0) return i + 1;
+  return null;
+}
+function plhIsoFimMes(ano, mes) { var d = new Date(ano, mes, 0); return ano + '-' + String(mes).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+/** Objetos em dia na data (iso), num cenário ('otim' | 'real' | 'pess' | 'nada'). */
+function plhIcpiCalc(icpi, cenario, dataIso) {
+  var porChave = {};
+  icpi.acoes.forEach(function (a) { porChave[a.chave] = a; });
+  var anoD = Number(dataIso.slice(0, 4)), mesD = Number(dataIso.slice(5, 7));
+  var emDia = 0, fora = [];
+  icpi.objetos.forEach(function (o) {
+    var ok = true;
+    o.itens.forEach(function (it) {
+      if (!ok || !it.venc || it.venc >= dataIso) return;          // ainda no prazo
+      var a = porChave[it.chave];
+      if (a && a.concluida) return;                                // relatório já registrado
+      if (cenario === 'nada' || !a) { ok = false; return; }
+      var m = plhMesPrev(a[cenario]);
+      if (!m) { ok = false; return; }                              // não realiza / sem previsão
+      if (a.ano * 12 + m > anoD * 12 + mesD) ok = false;           // conclui depois desta data
+    });
+    if (ok) emDia++; else fora.push(o.objeto);
+  });
+  return { emDia: emDia, total: icpi.objetos.length, pct: icpi.objetos.length ? emDia / icpi.objetos.length * 100 : 0, fora: fora };
+}
+
+function plhPctTxt(v) { return v.toFixed(1).replace('.', ',') + '%'; }
+
+function plhRenderIcpi() {
+  if (!plh.data || !plh.data.icpi) return;
+  var icpi = plh.data.icpi, hojeIso = icpi.hoje, ano = icpi.ano, meta = icpi.meta;
+  var atual = plhIcpiCalc(icpi, 'nada', hojeIso);
+  // meses: do atual até dezembro + janeiro seguinte (efeito dos vencimentos de 31/12)
+  var mes0 = Number(hojeIso.slice(5, 7)), pontos = [];
+  for (var m = mes0; m <= 12; m++) pontos.push({ ano: ano, mes: m });
+  pontos.push({ ano: ano + 1, mes: 1 });
+  var series = {};
+  ['otim', 'real', 'pess', 'nada'].forEach(function (c) {
+    series[c] = pontos.map(function (p) { return plhIcpiCalc(icpi, c, plhIsoFimMes(p.ano, p.mes)); });
+  });
+  var iDez = pontos.length - 2, iJan = pontos.length - 1;
+  var bloco = function (idx, titulo, sub) {
+    return '<div class="plh-icpi-k"><div class="t">' + titulo + '</div><div class="s">' + sub + '</div><div class="plh-icpi-cen">' +
+      PLH_CENARIOS.map(function (c) {
+        var r = series[c.k][idx];
+        return '<div class="' + (r.pct >= meta ? 'ok' : 'nok') + '" title="' + plhE(r.fora.length ? 'Fora do prazo: ' + r.fora.join(', ') : 'Todos em dia') + '">' +
+          '<span>' + c.nome + '</span><b>' + plhPctTxt(r.pct) + '</b><span>' + r.emDia + '/' + r.total + '</span></div>';
+      }).join('') + '</div></div>';
+  };
+  document.getElementById('plhIcpiKpis').innerHTML =
+    '<div class="plh-icpi-k"><div class="t">ICPI hoje</div><div class="big" style="color:' + (atual.pct >= meta ? '#2e7d32' : '#b3261e') + '">' + plhPctTxt(atual.pct) + '</div>' +
+      '<div class="s">' + atual.emDia + ' de ' + atual.total + ' objetos em dia · meta ' + plhPctTxt(meta) + '</div>' +
+      (atual.fora.length ? '<div class="s plh-desat">Fora do prazo: ' + plhE(atual.fora.join(', ')) + '</div>' : '') + '</div>' +
+    bloco(iDez, 'Dezembro/' + ano, 'fechamento do ano') +
+    bloco(iJan, 'Janeiro/' + (ano + 1), 'efeito dos vencimentos de 31/12');
+
+  if (typeof Chart !== 'undefined') {
+    var rot = pontos.map(function (p) { return PLH_MES_ABREV[p.mes - 1] + '/' + String(p.ano).slice(2); });
+    // realista por último: fica por cima quando coincide com os outros cenários
+    var ds = [PLH_CENARIOS[0], PLH_CENARIOS[2], PLH_CENARIOS[1]].map(function (c) {
+      return { label: c.nome, data: series[c.k].map(function (r) { return +r.pct.toFixed(1); }), borderColor: c.cor, backgroundColor: c.cor,
+               tension: 0, pointRadius: c.k === 'real' ? 4 : 3, borderWidth: c.k === 'real' ? 3 : 2 };
+    });
+    ds.push({ label: 'Se nada for feito', data: series.nada.map(function (r) { return +r.pct.toFixed(1); }), borderColor: '#9aa0ac', backgroundColor: '#9aa0ac',
+              borderDash: [4, 4], pointRadius: 0, borderWidth: 1.5 });
+    ds.push({ label: 'Meta ' + plhPctTxt(meta), data: pontos.map(function () { return meta; }), borderColor: '#F0A030', backgroundColor: '#F0A030',
+              borderDash: [8, 5], pointRadius: 0, borderWidth: 2 });
+    drawChart('plhIcpiChart', 'line', { labels: rot, datasets: ds }, {
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + String(c.parsed.y).replace('.', ',') + '%'; } } } },
+      scales: { y: { min: 0, max: 100, ticks: { callback: function (v) { return v + '%'; } } } }
+    });
+  }
+
+  var mostrarConcl = document.getElementById('plhIcpiConcl').checked;
+  var lista = icpi.acoes.filter(function (a) { return mostrarConcl || !a.concluida; });
+  var pend = icpi.acoes.filter(function (a) { return !a.concluida; }).length;
+  var mesAtual = hojeIso.slice(0, 7);
+  var desat = icpi.acoes.filter(function (a) { return !a.concluida && (a.atualizado || '').slice(0, 7) !== mesAtual; }).length;
+  document.getElementById('plhIcpiCount').innerHTML = icpi.acoes.length + ' inspeções · ' + pend + ' pendentes' +
+    (desat ? ' · <span class="plh-desat">' + desat + ' sem atualização neste mês</span>' : '');
+  var prev = function (t) {
+    var m = plhMesPrev(t);
+    if (m === null) return '<span class="plh-prev vazio">—</span>';
+    if (m === 0) return '<span class="plh-prev nao">não realiza</span>';
+    return '<span class="plh-prev">' + plhE(icpi.meses[m - 1]) + '</span>';
+  };
+  document.getElementById('plhIcpiBody').innerHTML = lista.map(function (a) {
+    var idx = icpi.acoes.indexOf(a);
+    var velho = !a.concluida && (a.atualizado || '').slice(0, 7) !== mesAtual;
+    var prazoChip = a.concluida ? '<span class="plh-chip plh-u4" style="background:#e8f5e9;color:#2e7d32">Concluída</span>'
+      : plhChip(a.prazo === 'Venc.' ? '1 - Vencida' : a.prazo === '<90d' ? '3 - <90 dias' : '4 - >90 dias');
+    return '<tr class="' + (a.concluida ? 'concl' : '') + '"><td><div class="a">' + plhE(a.acao) + '</div><div class="e">' + plhE(a.auto.etapa) + '</div></td>' +
+      '<td class="plh-num">' + plhDataBR(a.venc) + '</td><td>' + prazoChip + '</td><td>' + plhE(a.recurso) + '</td>' +
+      '<td class="plh-num">' + (a.pct === null || a.pct === undefined ? '-' : a.pct + '%') + '</td><td>' + plhE(a.status) + '</td>' +
+      '<td>' + (a.concluida ? '' : prev(a.otim)) + '</td><td>' + (a.concluida ? '' : prev(a.real)) + '</td><td>' + (a.concluida ? '' : prev(a.pess)) + '</td>' +
+      '<td class="plh-num' + (velho ? ' plh-desat' : '') + '" title="' + (velho ? 'Sem atualização neste mês' : '') + '">' + (a.atualizado ? plhDataBR(a.atualizado) : '—') + '</td>' +
+      '<td><button class="plh-mini" onclick="plhIcpiEditar(' + idx + ')" title="Editar previsões e observações"><i class="fas fa-pen"></i></button></td></tr>';
+  }).join('') || '<tr><td colspan="11"><div class="empty-state"><h3>Nenhuma inspeção do ICPI até o fim do ano</h3></div></td></tr>';
+}
+
+function plhIcpiAbrirAba() { plhAbrirPlanilha(plh.data && plh.data.icpi ? plh.data.icpi.abaGid : undefined); }
+
+function plhIcpiEditar(idx) {
+  var icpi = plh.data.icpi, a = icpi.acoes[idx];
+  if (!a) return;
+  var opcoesMes = function (atual) {
+    var m = plhMesPrev(atual);
+    var o = '<option value=""' + (m === null ? ' selected' : '') + '>— sem previsão —</option>';
+    for (var i = 1; i <= 12; i++) o += '<option value="' + icpi.meses[i - 1] + '"' + (m === i ? ' selected' : '') + '>' + icpi.meses[i - 1] + '/' + a.ano + '</option>';
+    return o + '<option value="-"' + (m === 0 ? ' selected' : '') + '>não realiza</option>';
+  };
+  var sel = function (id, valores, atual) {
+    return '<input id="' + id + '" list="' + id + 'L" value="' + plhE(atual || '') + '"><datalist id="' + id + 'L">' +
+      valores.map(function (v) { return '<option value="' + plhE(v) + '">'; }).join('') + '</datalist>';
+  };
+  var html = '<div class="plh-modal-bg" id="plhIcpiModal" onclick="if(event.target===this)plhIcpiFechar()"><div class="plh-modal">' +
+    '<h3><i class="fas fa-pen" style="color:#8e24aa"></i> ' + plhE(a.acao) + '</h3><div class="corpo">' +
+    '<div class="full info"><b>Situação automática:</b> ' + plhE(a.auto.etapa) + ' · vence ' + plhDataBR(a.venc) + (a.os ? ' · OS ' + plhE(a.os) : '') + '</div>' +
+    '<div><label>Gerência</label>' + sel('plhIcG', ['ENGI', 'SUB'], a.gerencia) + '</div>' +
+    '<div><label>Recurso</label>' + sel('plhIcR', ['Embarcação', 'Inspetor', 'RSV', 'LDA Baixa', 'SOV'], a.recurso) + '</div>' +
+    '<div><label>Início plan.</label><input type="date" id="plhIcI" value="' + plhE(a.inicio) + '"></div>' +
+    '<div><label>Fim proj. (realista)</label><input type="date" id="plhIcF" value="' + plhE(a.fim) + '"></div>' +
+    '<div><label>% Concl.</label><input type="number" min="0" max="100" step="5" id="plhIcP" value="' + (a.pct === null || a.pct === undefined ? '' : a.pct) + '"></div>' +
+    '<div><label>Status</label>' + sel('plhIcS', ['Em andamento', 'Concluido', 'Não iniciado'], a.status) + '</div>' +
+    '<div><label>Prev. Otimista</label><select id="plhIcO">' + opcoesMes(a.otim) + '</select></div>' +
+    '<div><label>Prev. Realista</label><select id="plhIcRe">' + opcoesMes(a.real) + '</select></div>' +
+    '<div><label>Prev. Pessimista</label><select id="plhIcPe">' + opcoesMes(a.pess) + '</select></div>' +
+    '<div></div>' +
+    '<div class="full"><label>Observações</label><textarea id="plhIcOb">' + plhE(a.obs) + '</textarea></div>' +
+    '<div class="full"><label>Justificativa</label><textarea id="plhIcJu">' + plhE(a.just) + '</textarea></div>' +
+    '</div><div class="rodape"><button class="btn btn-secondary" onclick="plhIcpiFechar()">Cancelar</button>' +
+    '<button class="btn btn-primary" id="plhIcSalvar" onclick="plhIcpiSalvar(' + idx + ')"><i class="fas fa-floppy-disk"></i> Salvar</button></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function plhIcpiFechar() { var m = document.getElementById('plhIcpiModal'); if (m) m.remove(); }
+
+function plhIcpiSalvar(idx) {
+  var a = plh.data.icpi.acoes[idx];
+  var v = function (id) { return document.getElementById(id).value.trim(); };
+  var pct = v('plhIcP');
+  var novo = {
+    chave: a.chave, ano: a.ano, acao: a.acao, objeto: a.objeto, proc: a.proc, ladoTxt: a.ladoTxt, venc: a.venc,
+    gerencia: v('plhIcG'), recurso: v('plhIcR'), inicio: v('plhIcI'), fim: v('plhIcF'), pct: pct === '' ? '' : Number(pct),
+    status: v('plhIcS'), obs: v('plhIcOb'), just: v('plhIcJu'), otim: v('plhIcO'), real: v('plhIcRe'), pess: v('plhIcPe')
+  };
+  var b = document.getElementById('plhIcSalvar'); b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+  google.script.run.withSuccessHandler(function () {
+    // atualização imediata na tela; os dados completos são relidos em seguida
+    Object.keys(novo).forEach(function (k) { if (['chave', 'ano', 'acao', 'objeto', 'proc', 'ladoTxt', 'venc'].indexOf(k) < 0) a[k] = novo[k]; });
+    a.pct = novo.pct === '' ? a.auto.pct : novo.pct;
+    a.atualizado = plh.data.icpi.hoje;
+    a.concluida = a.auto.situacao === 'concluida' || plhSemAcento(a.status).indexOf('conclu') === 0;
+    plhIcpiFechar(); plhRenderIcpi(); showAlert('Previsões salvas', 'success');
+  }).withFailureHandler(function (e) {
+    b.disabled = false; b.innerHTML = '<i class="fas fa-floppy-disk"></i> Salvar';
+    showAlert('Erro ao salvar: ' + (e && e.message ? e.message : e), 'error');
+  }).salvarIcpiAcao(novo);
+}
+
+/** Copia as linhas no formato da planilha da gerência (cole na primeira coluna "S"). */
+function plhIcpiCopiar() {
+  var icpi = plh.data.icpi;
+  var cel = function (v) { v = v === null || v === undefined ? '' : String(v); return /[\t\n\r"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var mesTxt = function (t) { var m = plhMesPrev(t); return m === null ? '' : m === 0 ? '-' : icpi.meses[m - 1]; };
+  var linhas = icpi.acoes.map(function (a) {
+    return ['Sub.', 'Interligação', 'Sim', 'ICPI SSUB', 'RNCE', a.acao, a.gerencia, a.recurso, plhDataBR(a.venc),
+      a.inicio ? plhDataBR(a.inicio) : '', a.fim ? plhDataBR(a.fim) : '', (a.pct === null || a.pct === undefined || a.pct === '') ? '' : a.pct + '%',
+      a.status, a.os || '', 'Willyam', plhDataBR(a.venc), a.prazo, a.obs, a.just,
+      a.concluida ? '-' : mesTxt(a.otim), a.concluida ? '-' : mesTxt(a.real), a.concluida ? '-' : mesTxt(a.pess),
+      'Willyam', a.atualizado ? plhDataBR(a.atualizado) : ''].map(cel).join('\t');
+  });
+  var texto = linhas.join('\r\n');
+  var ta = document.createElement('textarea');
+  ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  if (ok) { showAlert(linhas.length + ' linhas copiadas. Na planilha da gerência, clique na coluna S da primeira linha e cole (Ctrl+V)', 'success'); return; }
+  document.body.insertAdjacentHTML('beforeend', '<div class="plh-modal-bg" id="plhIcpiModal" onclick="if(event.target===this)plhIcpiFechar()"><div class="plh-modal">' +
+    '<h3><i class="fas fa-copy"></i> Copiar para a planilha da gerência</h3><div class="corpo"><div class="full info">O navegador bloqueou a cópia automática. ' +
+    'O texto abaixo já está selecionado: aperte <b>Ctrl+C</b>, depois cole na coluna S da planilha.</div>' +
+    '<div class="full"><textarea id="plhIcpiTxt" style="min-height:220px;font-family:monospace;font-size:11px">' + plhE(texto) + '</textarea></div></div>' +
+    '<div class="rodape"><button class="btn btn-secondary" onclick="plhIcpiFechar()">Fechar</button></div></div></div>');
+  var t = document.getElementById('plhIcpiTxt'); t.focus(); t.select();
 }
 
 /* ---------------- FLUXO DE INSPEÇÃO ---------------- */
