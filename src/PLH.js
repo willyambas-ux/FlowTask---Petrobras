@@ -624,7 +624,7 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
     fluxo.push({
       tipo: 'demanda', chave: 'FLX ' + g.planejs.join('+'), plat: p.plat, objId: p.objId, objeto: p.objeto,
       comp: g.comps.join(' · '), proc: p.proc, uep: ueps.join(', '), planej: g.planejs.join(', '),
-      prazo: p.prox, dias: p.dias, os: comOS.map(function (r) { return r.os; }).join(', '),
+      prazo: p.prox, dataRef: p.prox, dias: p.dias, os: comOS.map(function (r) { return r.os; }).join(', '),
       statusOS: stOS.join(', '), etapaAtual: atualIdx, etapas: e,
       situacao: !temOS ? 'Aguardando OS' : todasComOS ? 'OS ' + (stOS[0] || 'aberta') : 'OS parcial',
       alerta: p.dias < 0 || replanejar
@@ -685,7 +685,7 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
       tipo: 'execucao', chave: 'FLX EXEC ' + plhTxt_(r.Componente_BDIEP) + ' ' + plhIso_(exec),
       plat: plhPlataforma_(r.Instalacao_Resp), objId: idPorNome[plhNorm_(interlig)] || (p ? p.objId : ''),
       objeto: interlig, comp: comp, proc: plhTxt_(r.Procedimento), uep: '', planej: plhTxt_(r.Cod_Planej_Posterior),
-      prazo: semPatec ? '' : plhIso_(prazo), dias: semPatec ? null : dias, os: '', statusOS: '',
+      prazo: semPatec ? '' : plhIso_(prazo), dataRef: plhIso_(exec), dias: semPatec ? null : dias, os: '', statusOS: '',
       patec: plhTxt_(r.PATEC), etapaAtual: atual, etapas: e, situacao: situacao,
       alerta: !semPatec && !concluido && dias !== null && dias < 0
     });

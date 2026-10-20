@@ -48,35 +48,34 @@
 .plh-funil-etapa .num{position:absolute;top:8px;right:10px;font-size:10px;color:#c0c6cf;font-weight:600}
 .plh-funil-etapa.zero .n{color:#c0c6cf}
 .plh-funil-etapa.fim{background:#f3faf5}
-.plh-fluxo-lista{display:flex;flex-direction:column;gap:10px}
-.plh-fx{background:#fff;border:1px solid #f0f2f5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);padding:14px 18px;display:grid;grid-template-columns:minmax(220px,1.1fr) minmax(340px,2fr) 150px;gap:18px;align-items:center}
-.plh-fx.alerta{border-left:4px solid #E5534B}
-.plh-fx-obj .o{font-weight:600;color:#2c3e50;font-size:13.5px}
-.plh-fx-obj .c{font-size:12px;color:#7b8794;margin-top:2px}
-.plh-fx-obj .m{font-size:11.5px;color:#9aa0ac;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
-.plh-fx-obj .m span{background:#f5f7fa;border-radius:6px;padding:1px 7px}
-.plh-steps{display:flex;align-items:flex-start}
-.plh-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;min-width:0}
-.plh-step:not(:last-child)::after{content:'';position:absolute;top:10px;left:calc(50% + 12px);right:calc(-50% + 12px);height:2px;background:#e3e7ec}
-.plh-step.ok:not(:last-child)::after{background:#8fd3a8}
-.plh-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #d5dae1;background:#fff;color:#9aa0ac;z-index:1}
-.plh-step.ok .plh-dot{background:#27ae60;border-color:#27ae60;color:#fff}
-.plh-step.atual .plh-dot{background:#1976d2;border-color:#1976d2;color:#fff;box-shadow:0 0 0 4px #d6e7fb}
-.plh-step.alerta .plh-dot{background:#E5534B;border-color:#E5534B;color:#fff;box-shadow:0 0 0 4px #fbdedc}
-.plh-step.na .plh-dot{border-style:dashed;background:#f5f7fa;color:#c0c6cf}
-.plh-step.sem .plh-dot{border-style:dashed;border-color:#e0b252;color:#b07d10;background:#fffaf0}
-.plh-step .l{font-size:10px;color:#9aa0ac;margin-top:5px;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.plh-step.atual .l,.plh-step.alerta .l{color:#2c3e50;font-weight:600}
-.plh-step .d{font-size:9.5px;color:#b0b6bf;margin-top:1px;white-space:nowrap}
-.plh-fx-info{font-size:12px;color:#5f6b7c;margin-top:8px;padding-left:2px}
-.plh-fx-info b{color:#2c3e50}
-.plh-fx-dir{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-.plh-fx-dir .pz{font-size:12px;color:#7b8794}
+.plh-fx-tab td{padding:9px 10px;border-bottom:1px solid #f3f4f6}
+.plh-fx-tab tr:last-child td{border-bottom:none}
+.plh-fx-tab tr:hover td{background:#fafbfc}
+.plh-fx-tab tr.atraso td:first-child{box-shadow:inset 3px 0 0 #E5534B}
+.plh-fx-tab th.plh-c-h{text-align:center;font-size:9.5px;letter-spacing:0.2px;padding:10px 2px;white-space:normal;line-height:1.2;width:62px}
+.plh-fx-n{min-width:200px;max-width:280px}
+.plh-fx-n .o{font-weight:600;font-size:13px;color:#2c3e50}
+.plh-fx-n .s{font-size:11.5px;color:#9aa0ac;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-fx-sit{min-width:200px;max-width:320px}
+.plh-fx-sit .i{font-size:12px;color:#3d4757}
+.plh-fx-sit .q{font-size:11px;color:#9aa0ac;margin-top:2px}
+.plh-c{position:relative;text-align:center;padding:9px 0 !important;width:62px}
+.plh-c::before,.plh-c::after{content:'';position:absolute;top:50%;height:2px;background:#e3e7ec;width:calc(50% - 9px);margin-top:-1px}
+.plh-c::before{left:0}.plh-c::after{right:0}
+.plh-c.prim::before,.plh-c.ult::after{display:none}
+.plh-c.ok::before,.plh-c.lig::after{background:#8fd3a8}
+.plh-c .plh-dot{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;border:2px solid #d5dae1;background:#fff;color:#9aa0ac;position:relative;z-index:1;vertical-align:middle}
+.plh-c.ok .plh-dot{background:#27ae60;border-color:#27ae60;color:#fff}
+.plh-c.atual .plh-dot{background:#1976d2;border-color:#1976d2;box-shadow:0 0 0 4px #d6e7fb}
+.plh-c.alerta .plh-dot{background:#E5534B;border-color:#E5534B;color:#fff;box-shadow:0 0 0 4px #fbdedc}
+.plh-c.na .plh-dot{border-style:dashed;background:#f5f7fa;color:#c0c6cf}
+.plh-c.sem .plh-dot{border-style:dashed;border-color:#e0b252;color:#b07d10;background:#fffaf0}
+.plh-mini{border:1px solid #e0e4ea;background:#f8f9fa;color:#5f6b7c;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:11px}
+.plh-mini:hover{background:#e6faf6;color:#00a085;border-color:#b2ece0}
 .plh-legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#7b8794;margin:-4px 0 14px}
 .plh-legenda span{display:inline-flex;align-items:center;gap:5px}
 .plh-legenda i.b{width:11px;height:11px;border-radius:50%;display:inline-block;border:2px solid #d5dae1}
-@media(max-width:1100px){.plh-fx{grid-template-columns:1fr;gap:10px}.plh-fx-dir{flex-direction:row;justify-content:space-between;align-items:center}}
-@media(max-width:768px){.plh-step .l,.plh-step .d{display:none}.plh-step.atual .l,.plh-step.alerta .l{display:block}}
+@media(max-width:768px){.plh-fx-sit{min-width:150px}.plh-fx-n{min-width:150px}}
 @media(max-width:768px){.plh-charts{grid-template-columns:1fr}.plh-ficha-head input,.plh-ficha-head select{min-width:0;width:100%}}
 </style>
 
@@ -123,11 +122,9 @@
         <input type="text" id="plhFxBusca" placeholder="Buscar duto, componente, OS, PATEC..." oninput="plhRenderFluxo()"></div>
       <select class="filter-select" id="plhFxPlat" onchange="plhRenderFluxo()"></select>
       <select class="filter-select" id="plhFxProc" onchange="plhRenderFluxo()"></select>
-      <select class="filter-select" id="plhFxHorizonte" onchange="plhRenderFluxo()">
-        <option value="180">Demandas: vencidas + 6 meses</option>
-        <option value="365" selected>Demandas: vencidas + 12 meses</option>
-        <option value="730">Demandas: vencidas + 24 meses</option>
-      </select>
+      <select class="filter-select" id="plhFxPeriodo" onchange="plhRenderFluxo()" title="Ano do vencimento (demandas) ou da execução (inspeções já feitas)"></select>
+      <label class="plh-muted" id="plhFxAntLbl" style="display:none;align-items:center;gap:6px;cursor:pointer;" title="Demandas vencidas em anos anteriores que ainda estão abertas">
+        <input type="checkbox" id="plhFxAnteriores" checked onchange="plhRenderFluxo()"> + vencidas de anos anteriores</label>
       <label class="plh-muted" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" id="plhFxConcl" onchange="plhRenderFluxo()"> Mostrar concluídas</label>
       <button class="btn-clear-filters" onclick="plhFxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
@@ -431,7 +428,8 @@ function plhIrPendencias(iCard, filtro) {
 /* ---------------- FLUXO DE INSPEÇÃO ---------------- */
 function plhFxLimpar() {
   ['plhFxBusca', 'plhFxPlat', 'plhFxProc'].forEach(function (id) { document.getElementById(id).value = ''; });
-  document.getElementById('plhFxHorizonte').value = '365';
+  document.getElementById('plhFxPeriodo').value = 'prox12';
+  document.getElementById('plhFxAnteriores').checked = true;
   document.getElementById('plhFxConcl').checked = false;
   plhFx.etapa = null;
   plhRenderFluxo();
@@ -448,12 +446,23 @@ function plhRenderFluxo() {
   var d = plh.data, E = d.etapasFluxo || [];
   var q = document.getElementById('plhFxBusca').value.toLowerCase().trim();
   var fp = document.getElementById('plhFxPlat').value, fpr = document.getElementById('plhFxProc').value;
-  var hz = Number(document.getElementById('plhFxHorizonte').value);
+  var per = document.getElementById('plhFxPeriodo').value || 'prox12';
+  var ehAno = /^\d{4}$/.test(per);
+  document.getElementById('plhFxAntLbl').style.display = ehAno ? 'inline-flex' : 'none';
+  var anteriores = document.getElementById('plhFxAnteriores').checked;
   var concl = document.getElementById('plhFxConcl').checked;
+  var noPeriodo = function (x) {
+    var ref = x.dataRef || '';
+    if (per === 'todos') return true;
+    if (per === 'prox12') return x.tipo !== 'demanda' || x.dias === null || x.dias <= 365;
+    if (ref.slice(0, 4) === per) return true;
+    // demanda ainda aberta, vencida antes do ano escolhido
+    return anteriores && x.tipo === 'demanda' && ref && ref.slice(0, 4) < per && x.dias !== null && x.dias < 0;
+  };
   var base = (d.fluxo || []).filter(function (x) {
     if (fp && x.plat !== fp) return false;
     if (fpr && x.proc !== fpr) return false;
-    if (x.tipo === 'demanda' && x.dias !== null && x.dias > hz) return false;
+    if (!noPeriodo(x)) return false;
     if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep].join(' ').toLowerCase().indexOf(q) < 0) return false;
     return true;
   });
@@ -476,34 +485,37 @@ function plhRenderFluxo() {
   });
   document.getElementById('plhFxCount').textContent = lista.length + ' inspeç' + (lista.length === 1 ? 'ão' : 'ões') +
     (plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
-  var icone = { ok: '<i class="fas fa-check"></i>', atual: '<i class="fas fa-circle" style="font-size:7px"></i>',
-                alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '' };
-  document.getElementById('plhFluxoLista').innerHTML = lista.length ? lista.map(function (x) {
+  var icone = { ok: '<i class="fas fa-check"></i>', atual: '', alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '' };
+  var linhas = lista.map(function (x) {
     var idx = d.fluxo.indexOf(x);
-    var steps = x.etapas.map(function (e, i) {
+    var celulas = x.etapas.map(function (e, i) {
       var tip = E[i] + (e.info ? ': ' + e.info : '') + (e.data ? ' (' + plhDataBR(e.data) + ')' : '');
-      return '<div class="plh-step ' + e.estado + '" title="' + plhE(tip) + '"><div class="plh-dot">' + icone[e.estado] + '</div>' +
-        '<div class="l">' + plhE(E[i]) + '</div><div class="d">' + (e.data ? plhDataBR(e.data).slice(0, 5) + '/' + e.data.slice(2, 4) : '') + '</div></div>';
+      var proxOk = i < x.etapas.length - 1 && e.estado === 'ok';
+      return '<td class="plh-c ' + e.estado + (proxOk ? ' lig' : '') + (i === 0 ? ' prim' : '') + (i === x.etapas.length - 1 ? ' ult' : '') +
+        '" title="' + plhE(tip) + '"><span class="plh-dot">' + icone[e.estado] + '</span></td>';
     }).join('');
     var atualE = x.etapaAtual < 8 ? x.etapas[x.etapaAtual] : null;
-    var info = x.etapaAtual >= 8 ? '<b>Concluído</b> · ' + plhE(x.situacao)
-      : '<b>' + plhE(E[x.etapaAtual]) + ':</b> ' + plhE(atualE.info || x.situacao);
+    var sit = x.etapaAtual >= 8 ? plhE(x.situacao) : plhE((atualE && atualE.info) || x.situacao);
     var t = plhTarefaDe(x.chave);
     var tarefa = t
-      ? '<span class="plh-task-ok" onclick="editTaskById(\'' + plhE(t.id) + '\')"><i class="fas fa-circle-check"></i> Tarefa: ' + plhE(t.bucket) + '</span>'
-      : '<button class="btn btn-secondary" style="padding:5px 9px;font-size:12px;" onclick="plhCriarTarefaFluxo(' + idx + ')" title="Criar tarefa no FlowTask"><i class="fas fa-plus"></i> Tarefa</button>';
-    var prazo = x.prazo
-      ? '<span class="pz">' + (x.tipo === 'demanda' ? 'Vence ' : 'Prazo PATEC ') + plhDataBR(x.prazo) + '</span>' +
-        (x.etapaAtual < 8 ? plhChip(x.dias < 0 ? '1 - ' + (-x.dias) + ' d de atraso' : x.dias <= 30 ? '2 - ' + x.dias + ' dias' : x.dias <= 90 ? '3 - ' + x.dias + ' dias' : '4 - ' + x.dias + ' dias') : '')
-      : '<span class="pz">' + (x.tipo === 'execucao' ? 'Sem PATEC' : '') + '</span>';
-    var meta = [x.proc, x.uep ? 'UEP ' + x.uep : '', x.plat, x.os ? 'OS ' + x.os : '', x.patec || ''].filter(String)
-      .map(function (m) { return '<span>' + plhE(m) + '</span>'; }).join('');
+      ? '<span class="plh-task-ok" onclick="editTaskById(\'' + plhE(t.id) + '\')" title="Tarefa: ' + plhE(t.bucket) + '"><i class="fas fa-circle-check"></i></span>'
+      : '<button class="plh-mini" onclick="plhCriarTarefaFluxo(' + idx + ')" title="Criar tarefa no FlowTask"><i class="fas fa-plus"></i></button>';
+    var prazo = '';
+    if (x.prazo && x.etapaAtual < 8) prazo = plhChip(x.dias < 0 ? '1 - ' + (-x.dias) + ' d atraso' : x.dias <= 30 ? '2 - ' + x.dias + ' d' : x.dias <= 90 ? '3 - ' + x.dias + ' d' : '4 - ' + x.dias + ' d');
+    var quando = x.tipo === 'demanda' ? 'Vence ' + plhDataBR(x.prazo) : 'Executada ' + plhDataBR(x.dataRef) + (x.prazo ? ' · PATEC até ' + plhDataBR(x.prazo) : '');
     var nomeObj = x.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(x.objId) + '\')">' + plhE(x.objeto) + '</span>' : plhE(x.objeto);
-    return '<div class="plh-fx' + (x.alerta && x.etapaAtual < 8 ? ' alerta' : '') + '">' +
-      '<div class="plh-fx-obj"><div class="o">' + nomeObj + '</div><div class="c">' + plhE(x.comp) + '</div><div class="m">' + meta + '</div></div>' +
-      '<div><div class="plh-steps">' + steps + '</div><div class="plh-fx-info">' + info + '</div></div>' +
-      '<div class="plh-fx-dir">' + prazo + tarefa + '</div></div>';
-  }).join('') : '<div class="empty-state"><i class="fas fa-bars-progress"></i><h3>Nenhuma inspeção com esses filtros</h3></div>';
+    var sub = [x.proc, x.plat, x.uep ? 'UEP ' + x.uep : ''].filter(String).join(' · ');
+    return '<tr class="' + (x.alerta && x.etapaAtual < 8 ? 'atraso' : '') + '">' +
+      '<td class="plh-fx-n"><div class="o">' + nomeObj + '</div><div class="s" title="' + plhE(x.comp) + '">' + plhE(sub) + '</div></td>' +
+      celulas +
+      '<td class="plh-fx-sit"><div class="i">' + sit + '</div><div class="q">' + plhE(quando) + '</div></td>' +
+      '<td class="plh-num">' + prazo + '</td><td style="text-align:center">' + tarefa + '</td></tr>';
+  }).join('');
+  var cab = '<tr><th>Inspeção</th>' + E.map(function (n) { return '<th class="plh-c-h">' + plhE(n) + '</th>'; }).join('') +
+    '<th>Etapa atual</th><th style="text-align:right">Prazo</th><th></th></tr>';
+  document.getElementById('plhFluxoLista').innerHTML = lista.length
+    ? '<div class="table-container"><table class="plh-fx-tab"><thead>' + cab + '</thead><tbody>' + linhas + '</tbody></table></div>'
+    : '<div class="empty-state"><i class="fas fa-bars-progress"></i><h3>Nenhuma inspeção com esses filtros</h3></div>';
 }
 
 /* ---------------- PENDÊNCIAS ---------------- */
@@ -522,6 +534,12 @@ function plhPrepararFiltros() {
   var unicos = function (arr) { return arr.filter(function (v, i) { return v && arr.indexOf(v) === i; }).sort(); };
   opt('plhFxPlat', 'Todas as plataformas', unicos((d.fluxo || []).map(function (x) { return x.plat; })));
   opt('plhFxProc', 'Todos os procedimentos', unicos((d.fluxo || []).map(function (x) { return x.proc; })));
+  var sp = document.getElementById('plhFxPeriodo'), atualPer = sp.value || 'prox12';
+  var anos = unicos((d.fluxo || []).map(function (x) { return (x.dataRef || '').slice(0, 4); }));
+  sp.innerHTML = '<option value="prox12">Vencidas + próximos 12 meses</option>' +
+    anos.map(function (a) { return '<option value="' + a + '">Ano ' + a + '</option>'; }).join('') +
+    '<option value="todos">Todos os períodos</option>';
+  sp.value = Array.prototype.some.call(sp.options, function (o) { return o.value === atualPer; }) ? atualPer : 'prox12';
   var sp = document.getElementById('plhSelPlat'), atualP = sp.value;
   sp.innerHTML = '<option value="">Escolha a plataforma...</option>' + d.plataformas.map(function (p) { return '<option>' + plhE(p) + '</option>'; }).join('');
   sp.value = atualP;
