@@ -31,4 +31,5 @@ jobs:
         if: ${{ vars.DEPLOYMENT_ID != '' }}
         env:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
-        run: clasp deploy -i "$DEPLOYMENT_ID" -d "Auto: ${GITHUB_SHA::7}"
+        run: |
+          clasp deploy -i "$DEPLOYMENT_ID" -d "Auto ${GITHUB_SHA::7}"
