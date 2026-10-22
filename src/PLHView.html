@@ -1180,10 +1180,13 @@ function plhMxAjustarEsq() {
 window.addEventListener('resize', function () { if (currentView === 'plhMatriz') plhMxAjustarEsq(); });
 
 function plhMxCompCard(c) {
-  var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : c.estado === 'semplano' ? 'semplano' : c.estado === 'foraanp' ? 'foraanp' : c.estado === 'naoclass' ? 'foraanp' : '';
-  var tags = (c.provavel ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O CIDR não informa o tipo: posição deduzida pela extensão">posição provável</span>' : '') +
-    (c.ladoDeduzido && !c.provavel ? '<span class="plh-esq-tag" title="Lado deduzido: era a única posição vazia">lado deduzido</span>' : '') +
-    (c.ladoManual || c.posManual ? '<span class="plh-esq-tag" style="background:#e6faf6;color:#00a085" title="Corrigido na aba PLH_Componentes">corrigido</span>' : '') +
+  var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : c.estado === 'semplano' ? 'semplano' : c.estado === 'foraanp' ? 'foraanp' : c.estado === 'naoclass' || c.estado === 'acessorio' ? 'foraanp' : '';
+  var fonteCor = { 'CIDR (ordem)': ['#e6faf6', '#00a085'], 'corrigido': ['#e6faf6', '#00a085'], 'GIDES (local)': ['#e8f1fb', '#1976d2'],
+                   'ICPI': ['#e8f1fb', '#1976d2'], 'deduzido': ['#fff6e0', '#a15c00'], 'ponta única': ['#eef1f4', '#5f6b7c'] }[c.ladoFonte];
+  var tags = (c.lado && c.ladoFonte && fonteCor && !c.provavel ? '<span class="plh-esq-tag" style="background:' + fonteCor[0] + ';color:' + fonteCor[1] + '" title="De onde veio o lado">lado: ' + plhE(c.ladoFonte) + '</span>' : '') +
+    (c.ladoConflitoICPI ? '<span class="plh-esq-tag" style="background:#fde4e2;color:#b3261e" title="O ICPI aponta outra UEP para esta demanda">ICPI: ' + plhE(c.ladoConflitoICPI) + '</span>' : '') +
+    (c.provavel ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O CIDR não informa o tipo: posição deduzida pela extensão">posição provável</span>' : '') +
+    (c.posManual ? '<span class="plh-esq-tag" style="background:#e6faf6;color:#00a085" title="Posição corrigida na aba PLH_Componentes">posição corrigida</span>' : '') +
     (c.ladoDuvida ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O ICPI aponta mais de uma UEP">ICPI: ' + plhE(c.ladoDuvida) + '</span>' : '');
   var procs = c.itens.map(function (i) {
     var cor = i.dias === null ? '' : i.dias < 0 ? 'background:#fde4e2;color:#b3261e' : i.dias <= 365 ? 'background:#fff6e0;color:#7a4b00' : '';
@@ -1192,11 +1195,12 @@ function plhMxCompCard(c) {
   }).join('');
   var ext = c.ext === null || c.ext === undefined ? '' : (c.ext >= 1000 ? (c.ext / 1000).toFixed(1).replace('.', ',') + ' km' : String(Math.round(c.ext * 10) / 10).replace('.', ',') + ' m');
   return '<div class="plh-esq-c ' + est + '"><div class="n" title="' + plhE(c.comp) + '">' + plhE(c.comp.replace(/^(Riser|Trecho) (Rígido|Flexível) /, '')) + tags + '</div>' +
-    '<div class="m">' + plhE([c.tipo, ext, c.dn ? 'Ø ' + String(c.dn).replace('.', ',') + '"' : '', c.esp ? 'esp. ' + String(c.esp).replace('.', ',') + '"' : ''].filter(String).join(' · ')) + '</div>' +
+    '<div class="m">' + plhE([c.tipo, c.ordem !== null && c.ordem !== undefined ? 'ordem ' + c.ordem : '', ext, c.dn ? 'Ø ' + String(c.dn).replace('.', ',') + '"' : '', c.esp ? 'esp. ' + String(c.esp).replace('.', ',') + '"' : ''].filter(String).join(' · ')) + '</div>' +
     (procs ? '<div class="p">' + procs + '</div>' : '') +
     (c.estado === 'semplano' ? '<div class="sub" style="color:#b3261e">sem planejamento' + (c.esperado ? ' · esperado ' + plhE(c.esperado) : '') + '</div>' : '') +
     (c.estado === 'foraanp' ? '<div class="m">fora do escopo ANP · sem planejamento</div>' : '') +
     (c.estado === 'naoclass' ? '<div class="m">sem planejamento · tipo não informado no CIDR (ex.: trecho na plataforma)</div>' : '') +
+    (c.estado === 'acessorio' ? '<div class="m">sem planejamento</div>' : '') +
     (c.subst ? '<div class="sub"><i class="fas fa-right-left"></i> ' + plhE(c.subst) + '</div>' : '') +
     (c.estado === 'falta' ? '<div class="sub" style="color:#b3261e">sem ' + plhE(c.esperado) + '</div>' : '') +
     (c.motivo ? '<div class="mot">' + plhE(c.motivo) + '</div>' : '') + '</div>';

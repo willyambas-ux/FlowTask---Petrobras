@@ -292,7 +292,7 @@ function plhLerCompCIDR_(ss, objetos, plan) {
   var ix = {
     duto: achar(/^(nome|interligacao|nome da interligacao|nome do duto|duto|objeto)$/),
     comp: achar(/componente/, /tipo|bdiep|codigo/),
-    tipo: achar(/tipo/),
+    tipo: achar(/tipo/), ordem: achar(/^ordem$/),
     ext: achar(/^extensao/), esp: achar(/espessura/), vida: achar(/vida util/), dn: achar(/diametro nominal/),
     anp: achar(/escopo anp/), sit: achar(/^situacao/), local: achar(/local de instalacao/),
     resp: achar(/inst\. resp|instalacao resp/), orig: achar(/origem/), dest: achar(/destino/)
@@ -316,6 +316,7 @@ function plhLerCompCIDR_(ss, objetos, plan) {
               ext: plhNumC_(g(r, 'ext')), esp: plhNumC_(g(r, 'esp')), vida: plhNumC_(g(r, 'vida')),
               dn: plhNumC_(g(r, 'dn')), anp: plhNulo_(g(r, 'anp')), situacao: plhNulo_(g(r, 'sit')),
               local: plhEhPlataforma_(g(r, 'local')) ? plhPlataforma_(g(r, 'local')) : '',
+              ordem: plhNumC_(g(r, 'ordem')),
               trio: [normPonta(g(r, 'resp')), normPonta(g(r, 'orig')), normPonta(g(r, 'dest'))].join('|') });
   }
   res.total = linhasC.length;
@@ -362,7 +363,7 @@ function plhLerCompCIDR_(ss, objetos, plan) {
   });
   linhasC.forEach(function (c) {
     if (!c.dutoId) { res.semDuto++; return; }
-    if (!c.nome) c.nome = c.tipo || 'Componente CIDR';
+    if (!c.nome) c.nome = (c.tipo || 'Componente CIDR') + (c.id ? ' [' + c.id.split(':')[1] + ']' : '');
     (res.porDuto[c.dutoId] = res.porDuto[c.dutoId] || []).push(c);
   });
   info.ok = true;
@@ -1606,10 +1607,11 @@ function plhEsqueleto_(l, obj, comps, cidr) {
   (cidr || []).forEach(function (c, i) {
     if (c.id && comPlano[c.id]) return;
     lista.push({ chave: c.id || ('CIDR' + i + '|' + (l.objId || l.objeto)), compId: c.id, comp: c.nome, tipo: c.tipo, ext: c.ext,
-                 local: c.local, procs: {}, itens: [], ladosICPI: {}, semPlano: true,
+                 local: c.local, ordem: c.ordem, procs: {}, itens: [], ladosICPI: {}, semPlano: true,
                  foraANP: !/^s/i.test(c.anp || ''), anp: c.anp, situacao: c.situacao });
   });
   if (!lista.length) return null;
+  lista.forEach(function (c) { if (c.ordem === undefined && c.compId && cidrPor[c.compId]) c.ordem = cidrPor[c.compId].ordem; });
   var tipoTxt = lista.map(function (c) { return plhNorm_(c.tipo); }).join(' ');
   var mat = /rigido/.test(tipoTxt) ? 'rigido' : /flexivel/.test(tipoTxt) ? 'flexivel' : null;
   if (!mat && obj && obj.config) { var cf = plhNorm_(String(obj.config).replace(/\u00ad/g, '')); mat = /rigido/.test(cf) ? 'rigido' : /flexivel/.test(cf) ? 'flexivel' : null; }
@@ -1618,6 +1620,15 @@ function plhEsqueleto_(l, obj, comps, cidr) {
   var pontas = [];
   if (obj) [obj.origem, obj.destino].forEach(function (x) { if (plhEhPlataforma_(x)) { var p = plhPlataforma_(x); if (pontas.indexOf(p) < 0) pontas.push(p); } });
 
+  // Ordem do cadastro de componentes do CIDR: segue o sentido do duto (origem → destino).
+  // Riser antes do trecho = ponta de origem; depois = ponta de destino.
+  var ordTrechos = lista.filter(function (c) { return /trecho|flow/.test(plhNorm_(c.tipo)) && c.ordem !== null && c.ordem !== undefined; })
+    .map(function (c) { return c.ordem; });
+  var ladoPelaOrdem = function (c) {
+    if (!ordTrechos.length || c.ordem === null || c.ordem === undefined || !obj || !/riser/.test(plhNorm_(c.tipo))) return '';
+    var ponta = c.ordem < Math.min.apply(null, ordTrechos) ? obj.origem : c.ordem > Math.max.apply(null, ordTrechos) ? obj.destino : '';
+    return plhEhPlataforma_(ponta) ? plhPlataforma_(ponta) : '';
+  };
   var out = [];
   lista.forEach(function (c) {
     var t = plhNorm_(c.tipo), auto = '';
@@ -1635,12 +1646,17 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     } else if (/riser flexivel/.test(t)) auto = 'riser';
     else auto = 'equip';
     var ladosAuto = Object.keys(c.ladosICPI);
-    var ladoAuto = c.local || (ladosAuto.length === 1 ? ladosAuto[0] : '');
+    var ladoICPI = ladosAuto.length === 1 ? ladosAuto[0] : '';
+    var ladoOrdem = ladoPelaOrdem(c);
+    var ladoAuto = ladoOrdem || c.local || ladoICPI;
+    var fonte = ladoOrdem ? 'CIDR (ordem)' : c.local ? 'GIDES (local)' : ladoICPI ? 'ICPI' : '';
     var corr = comps.porId[c.chave] || {};
     var pos = corr.pos || auto, lado = corr.lado || ladoAuto;
-    if (pos === 'leito' || pos === 'equip' || pos === 'terra' || pos === 'outro' || pos === 'indef') lado = corr.lado || '';
+    if (corr.lado) fonte = 'corrigido';
+    if (pos === 'leito' || pos === 'equip' || pos === 'terra' || pos === 'outro' || pos === 'indef') { lado = corr.lado || ''; fonte = lado ? fonte : ''; }
     // lado sobrando: duto com só uma plataforma nas pontas
-    if (!lado && (pos === 'emerso' || pos === 'submerso' || pos === 'riser') && pontas.length === 1) lado = pontas[0];
+    if (!lado && (pos === 'emerso' || pos === 'submerso' || pos === 'riser') && pontas.length === 1) { lado = pontas[0]; fonte = 'ponta única'; }
+    var conflito = (ladoOrdem && ladoICPI && ladoOrdem !== ladoICPI) ? ladoICPI : '';
     var esp = esperado[pos];
     var nomes = Object.keys(c.procs);
     var estado = 'ok', subst = '';
@@ -1654,11 +1670,13 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     }
     if (c.semPlano) estado = c.foraANP ? 'foraanp' : 'semplano';
     if (c.semPlano && c.foraANP && (pos === 'emerso' || pos === 'submerso' || pos === 'riser' || pos === 'leito' || pos === 'indef')) pos = 'outro';
+    if (c.semPlano && pos === 'outro' && estado === 'semplano') estado = 'acessorio';
     var dc = cidrPor[c.compId] || {};
     out.push({
       chave: c.chave, compId: c.compId, comp: c.comp, tipo: c.tipo, ext: c.ext === undefined ? null : c.ext,
       pos: pos, posAuto: auto, posManual: !!corr.pos, lado: lado, ladoAuto: ladoAuto, ladoManual: !!corr.lado,
-      ladoDuvida: !c.local && ladosAuto.length > 1 ? ladosAuto.join('/') : '',
+      ladoDuvida: !c.local && !ladoOrdem && ladosAuto.length > 1 ? ladosAuto.join('/') : '',
+      ladoFonte: fonte, ladoConflitoICPI: conflito, ordem: c.ordem === undefined ? null : c.ordem,
       motivo: corr.motivo || '', procs: nomes.sort(), estado: estado, subst: subst, semPlano: !!c.semPlano,
       esp: dc.esp === undefined ? null : dc.esp, dn: dc.dn === undefined ? null : dc.dn, vida: dc.vida === undefined ? null : dc.vida,
       anp: dc.anp || c.anp || '', sitComp: dc.situacao || c.situacao || '',
@@ -1684,11 +1702,11 @@ function plhEsqueleto_(l, obj, comps, cidr) {
   ['emerso', 'submerso', 'riser'].forEach(function (pos) {
     var semLado = out.filter(function (c) { return c.pos === pos && !c.lado; });
     var vazios = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
-    if (semLado.length === 1 && vazios.length === 1) { semLado[0].lado = vazios[0].lado; semLado[0].ladoDeduzido = true; }
+    if (semLado.length === 1 && vazios.length === 1) { semLado[0].lado = vazios[0].lado; semLado[0].ladoDeduzido = true; semLado[0].ladoFonte = 'deduzido'; }
     // componentes sem plano (do CIDR) completam as posições vazias quando a quantidade bate
     var semLadoSP = out.filter(function (c) { return c.pos === pos && !c.lado && c.semPlano; });
     var vaz2 = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
-    if (semLadoSP.length === 1 && vaz2.length === 1) { semLadoSP[0].lado = vaz2[0].lado; semLadoSP[0].ladoDeduzido = true; }
+    if (semLadoSP.length === 1 && vaz2.length === 1) { semLadoSP[0].lado = vaz2[0].lado; semLadoSP[0].ladoDeduzido = true; semLadoSP[0].ladoFonte = 'deduzido'; }
   });
   // componentes do CIDR sem tipo e sem plano: ocupam as posições vazias pela extensão
   // (o maior até o limite → riser emerso; até 100 m → riser submerso; acima → leito). O resto fica como "outro".
@@ -1706,14 +1724,14 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     };
     var c = indef.filter(function (x) { return x.pos === 'indef' && cabe(x.ext); })[0];
     if (!c) return;
-    c.pos = sl.pos; c.lado = sl.lado; c.provavel = true;
+    c.pos = sl.pos; c.lado = sl.lado; c.provavel = true; c.ladoFonte = 'deduzido';
     c.esperado = esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '';
   });
   out.forEach(function (c) { if (c.pos === 'indef') { c.pos = 'outro'; if (c.estado === 'semplano') c.estado = 'naoclass'; } });
 
   var posicoes = [], alertas = [];
   slots.forEach(function (sl) {
-    var cs = out.filter(function (c) { return noSlot(c, sl); });
+    var cs = out.filter(function (c) { return noSlot(c, sl); }).sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); });
     var p = { pos: sl.pos, lado: sl.lado, rotulo: PLH_POS_ROTULO[sl.pos] + (sl.lado ? ' ' + sl.lado : ''), comps: cs,
               esperado: esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '' };
     if (!cs.length) {
@@ -1724,6 +1742,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     }
     cs.forEach(function (c) {
       if (c.estado === 'falta') alertas.push(p.rotulo + ' (' + c.comp + '): sem ' + c.esperado);
+      if (c.ladoConflitoICPI) alertas.push(p.rotulo + ' (' + c.comp + '): pela ordem do CIDR o lado é ' + c.lado + ', mas o ICPI aponta ' + c.ladoConflitoICPI);
       if (c.estado === 'semplano') alertas.push(p.rotulo + ' (' + c.comp + (c.ext && c.comp.indexOf(' m') < 0 ? ', ' + c.ext + ' m' : '') + '): ' +
         (c.provavel ? 'componente do CIDR sem planejamento, provavelmente esta posição' : 'sem planejamento') + ', esperado ' + c.esperado);
     });
@@ -1732,7 +1751,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
   });
   var usados = {};
   posicoes.forEach(function (p) { p.comps.forEach(function (c) { usados[c.chave] = true; }); });
-  var fora = out.filter(function (c) { return !usados[c.chave]; });
+  var fora = out.filter(function (c) { return !usados[c.chave]; }).sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); });
   fora.forEach(function (c) {
     if (c.pos === 'equip' || c.pos === 'terra' || c.pos === 'outro') return;
     alertas.push(c.comp + ': ' + PLH_POS_ROTULO[c.pos] + (c.lado ? ' lado ' + c.lado + ' (não é ponta do duto no CIDR)' : ' sem lado identificado') + ': informe na aba PLH_Componentes');
