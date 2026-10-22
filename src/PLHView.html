@@ -184,6 +184,9 @@
 .plh-mx-leg span{display:inline-flex;align-items:center;gap:5px}
 .plh-mx-leg .q{width:14px;height:12px;border-radius:3px;display:inline-block;border:1px solid #e0e4ea}
 .plh-mx-nota{display:flex;gap:10px;align-items:flex-start;background:#f5f9ff;border:1px solid #dbe8f8;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#3d4757;margin-bottom:14px;line-height:1.45}
+.plh-dt-tab td{vertical-align:middle;font-size:12.5px}
+.plh-dt-tab td:first-child strong{white-space:nowrap}
+#plhDtStats .stat-info p{font-size:12.5px;line-height:1.3}
 .plh-mx-det td,.plh-mx-det th{font-size:12px;padding:6px 8px;border-bottom:1px solid #f0f2f5;text-align:left}
 @media(max-width:1100px){.plh-mx-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.plh-mx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.plh-mx .nome{min-width:150px}}
@@ -245,6 +248,44 @@
         <thead><tr><th>Inspeção</th><th>Venc.</th><th>Prazo</th><th>Recurso</th><th>% Concl.</th><th>Status</th>
           <th>Otimista</th><th>Realista</th><th>Pessimista</th><th>Atualizado</th><th></th></tr></thead>
         <tbody id="plhIcpiBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- INTERLIGAÇÕES -->
+  <div id="plhDutosView" style="display:none;">
+    <div class="stats-grid" id="plhDtStats"></div>
+    <div class="charts-grid plh-charts">
+      <div class="chart-card plh-chart-wide">
+        <h4><i class="fas fa-industry" style="color:#1976d2"></i> Interligações por plataforma responsável e situação</h4>
+        <div class="chart-wrapper"><canvas id="plhDtChartPlat"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4><i class="fas fa-diagram-project" style="color:#00a085"></i> Por função</h4>
+        <div class="chart-wrapper"><canvas id="plhDtChartFuncao"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4><i class="fas fa-bezier-curve" style="color:#8e24aa"></i> Rígido × flexível, por situação</h4>
+        <div class="chart-wrapper"><canvas id="plhDtChartConfig"></canvas></div>
+      </div>
+    </div>
+    <div class="filters-bar" style="border-radius:10px;border:1px solid #f0f2f5;margin-bottom:12px;">
+      <div class="search-box"><i class="fas fa-magnifying-glass"></i>
+        <input type="text" id="plhDtBusca" placeholder="Buscar nome, origem, destino..." oninput="plhRenderDutos()"></div>
+      <select class="filter-select" id="plhDtPlat" onchange="plhRenderDutos()"></select>
+      <select class="filter-select" id="plhDtSit" onchange="plhRenderDutos()"></select>
+      <select class="filter-select" id="plhDtFuncao" onchange="plhRenderDutos()"></select>
+      <select class="filter-select" id="plhDtConfig" onchange="plhRenderDutos()"></select>
+      <button class="btn-clear-filters" onclick="plhDtLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
+      <button class="btn btn-secondary" onclick="plhDtCopiar()" title="Copiar a tabela filtrada para colar no Excel"><i class="fas fa-copy"></i> <span class="btn-label">Copiar</span></button>
+      <span id="plhDtCount" class="plh-muted" style="margin-left:auto;"></span>
+    </div>
+    <div class="table-container">
+      <table class="plh-table plh-dt-tab">
+        <thead><tr><th>Interligação</th><th>Função</th><th>Origem → destino</th><th>Resp.</th><th>Situação</th>
+          <th style="text-align:right">Ø (pol)</th><th style="text-align:right">Extensão</th><th style="text-align:right">Em operação desde</th>
+          <th>SPIE</th><th>Pigável (insp./limp.)</th><th>Procedimentos no GIDES</th></tr></thead>
+        <tbody id="plhDtBody"></tbody>
       </table>
     </div>
   </div>
@@ -357,7 +398,7 @@
 <script>
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
-var PLH_VIEWS = ['plhDash', 'plhIcpi', 'plhFluxo', 'plhMatriz', 'plhPend', 'plhFicha'];
+var PLH_VIEWS = ['plhDash', 'plhDutos', 'plhIcpi', 'plhFluxo', 'plhMatriz', 'plhPend', 'plhFicha'];
 var plhMx = { filtro: null };
 var plhFx = { etapa: null, grupo: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
@@ -369,6 +410,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   if (menu) {
     var html = '<div class="menu-section-title">PLH SSUB</div>' +
       '<a href="#" class="menu-item" data-view="plhDash"><i class="fas fa-water"></i><span class="label">Visão Geral</span></a>' +
+      '<a href="#" class="menu-item" data-view="plhDutos"><i class="fas fa-route"></i><span class="label">Interligações</span></a>' +
       '<a href="#" class="menu-item" data-view="plhIcpi"><i class="fas fa-gauge-high"></i><span class="label">ICPI SSUB</span></a>' +
       '<a href="#" class="menu-item" data-view="plhFluxo"><i class="fas fa-bars-progress"></i><span class="label">Fluxo de inspeção</span></a>' +
       '<a href="#" class="menu-item" data-view="plhMatriz"><i class="fas fa-table-cells"></i><span class="label">Matriz de planejamento</span></a>' +
@@ -378,7 +420,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
     menu.insertAdjacentHTML('beforeend', html);
   }
   var area = document.querySelector('.content-area');
-  ['plhDashView', 'plhIcpiView', 'plhFluxoView', 'plhMatrizView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
+  ['plhDashView', 'plhDutosView', 'plhIcpiView', 'plhFluxoView', 'plhMatrizView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
     var el = document.getElementById(id);
     if (area && el) area.appendChild(el);
   });
@@ -394,6 +436,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
   var origTitulo = updatePageTitle;
   updatePageTitle = function () {
     var t = { plhDash: ['PLH SSUB', 'Integridade de dutos, interligações e jaquetas'],
+              plhDutos: ['PLH SSUB · Interligações', 'Inventário dos dutos, cabos e umbilicais do CIDR por situação'],
               plhIcpi: ['PLH SSUB · ICPI SSUB', 'Cumprimento do plano de inspeção: hoje, previsões e projeção até o fim do ano'],
               plhFluxo: ['PLH SSUB · Fluxo de inspeção', 'Demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC'],
               plhMatriz: ['PLH SSUB · Matriz de planejamento', 'Procedimentos cadastrados e periodicidade de cada duto e jaqueta'],
@@ -469,19 +512,19 @@ function plhCarregar(forcar, silencioso) {
 function plhMostrarCarregando() {
   PLH_VIEWS.forEach(function (v) {
     if (v !== currentView) return;
-    var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
+    var alvo = { plhDash: 'plhStats', plhDutos: 'plhDtBody', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
     var el = document.getElementById(alvo);
     var html = '<div class="loading"><div class="spinner"></div><p>Lendo as abas do PLH...</p></div>';
-    if (el) el.innerHTML = v === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
+    if (el) el.innerHTML = (v === 'plhPend' || v === 'plhDutos') ? '<tr><td colspan="11">' + html + '</td></tr>' : html;
   });
 }
 
 function plhMostrarErro() {
   var html = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>Não foi possível ler os dados</h3><p>' +
     escapeHtml(plh.erro) + '</p></div>';
-  var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
+  var alvo = { plhDash: 'plhStats', plhDutos: 'plhDtBody', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
   var el = document.getElementById(alvo);
-  if (el) el.innerHTML = currentView === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
+  if (el) el.innerHTML = (currentView === 'plhPend' || currentView === 'plhDutos') ? '<tr><td colspan="11">' + html + '</td></tr>' : html;
 }
 
 function plhAtualizarBadge() {
@@ -497,6 +540,7 @@ function plhRender() {
   else if (currentView === 'plhFluxo') plhRenderFluxo();
   else if (currentView === 'plhIcpi') plhRenderIcpi();
   else if (currentView === 'plhMatriz') plhRenderMatriz();
+  else if (currentView === 'plhDutos') plhRenderDutos();
   else if (currentView === 'plhPend') plhRenderPend();
   else if (currentView === 'plhFicha') plhRenderFicha();
 }
@@ -812,6 +856,162 @@ function plhIcpiCopiar() {
     '<div class="full"><textarea id="plhIcpiTxt" style="min-height:220px;font-family:monospace;font-size:11px">' + plhE(texto) + '</textarea></div></div>' +
     '<div class="rodape"><button class="btn btn-secondary" onclick="plhIcpiFechar()">Fechar</button></div></div></div>');
   var t = document.getElementById('plhIcpiTxt'); t.focus(); t.select();
+}
+
+/* ---------------- INTERLIGAÇÕES (inventário do CIDR) ---------------- */
+var PLH_DT_SIT = [
+  { k: 'Em Operação', c: '#27ae60', i: 'fa-circle-play', cor: 'green' },
+  { k: 'Fora de Operação', c: '#F0A030', i: 'fa-circle-pause', cor: 'orange' },
+  { k: 'Desativado Temporariamente', c: '#9AA5B1', i: 'fa-circle-stop', cor: 'blue' },
+  { k: 'Desativado Permanentemente', c: '#5f6b7c', i: 'fa-ban', cor: 'red' },
+  { k: 'Removido', c: '#c8ccd0', i: 'fa-trash-can', cor: 'red' }
+];
+var plhDt = { sit: '' };
+function plhDtObjetos() { return (plh.data.objetos || []).filter(function (o) { return o.cadastro === 'CIDR'; }); }
+function plhDtLimpar() {
+  ['plhDtBusca', 'plhDtPlat', 'plhDtSit', 'plhDtFuncao', 'plhDtConfig'].forEach(function (id) { document.getElementById(id).value = ''; });
+  plhRenderDutos();
+}
+function plhDtCard(sit) {
+  var sel = document.getElementById('plhDtSit');
+  sel.value = sel.value === sit ? '' : sit;
+  plhRenderDutos();
+}
+function plhDtConfigTxt(c) { return /flex/i.test(c || '') ? 'Flexível' : /r[ií]g/i.test(String(c || '').replace(/­/g, '')) ? 'Rígido' : (c || '-'); }
+function plhDtFmtKm(m) { return m === null || m === undefined ? '-' : m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : m + ' m'; }
+function plhDtSitChip(o) {
+  var s = PLH_DT_SIT.filter(function (x) { return x.k === o.situacao; })[0];
+  var cor = s ? s.c : '#9aa0ac';
+  return '<span class="plh-chip" style="background:' + cor + '22;color:' + (s && s.k === 'Removido' ? '#5f6b7c' : cor) + ';border:1px solid ' + cor + '55">' + plhE(o.situacao || '-') + '</span>' +
+    (o.extVida ? ' <span class="plh-chip plh-u3" title="No GIDES: Operação na Extensão de Vida Útil">Ext. vida</span>' : '');
+}
+
+function plhRenderDutos() {
+  if (!plh.data) return;
+  var todos = plhDtObjetos();
+  var opt = function (id, rot, vals) {
+    var el = document.getElementById(id);
+    if (el.options.length) return;
+    el.innerHTML = '<option value="">' + rot + '</option>' + vals.map(function (v) { return '<option>' + plhE(v) + '</option>'; }).join('');
+  };
+  var uniq = function (f) { var u = {}; todos.forEach(function (o) { var v = f(o); if (v) u[v] = true; }); return Object.keys(u).sort(); };
+  opt('plhDtPlat', 'Todas as plataformas', uniq(function (o) { return o.plat; }));
+  opt('plhDtSit', 'Todas as situações', PLH_DT_SIT.map(function (s) { return s.k; }).filter(function (k) { return todos.some(function (o) { return o.situacao === k; }); })
+    .concat(uniq(function (o) { return o.situacao; }).filter(function (k) { return !PLH_DT_SIT.some(function (s) { return s.k === k; }); })));
+  opt('plhDtFuncao', 'Todas as funções', uniq(function (o) { return o.funcao; }));
+  opt('plhDtConfig', 'Rígido e flexível', ['Rígido', 'Flexível']);
+
+  var q = document.getElementById('plhDtBusca').value.toLowerCase().trim();
+  var fp = document.getElementById('plhDtPlat').value, fs = document.getElementById('plhDtSit').value;
+  var ff = document.getElementById('plhDtFuncao').value, fc = document.getElementById('plhDtConfig').value;
+  // os cards e gráficos seguem os filtros, menos o de situação (que é o próprio card)
+  var semSit = todos.filter(function (o) {
+    if (fp && o.plat !== fp) return false;
+    if (ff && o.funcao !== ff) return false;
+    if (fc && plhDtConfigTxt(o.config) !== fc) return false;
+    if (q && [o.nome, o.origem, o.destino, o.funcao, o.fluido].join(' ').toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+  var lista = semSit.filter(function (o) { return !fs || o.situacao === fs; });
+
+  // cards
+  var nExt = semSit.filter(function (o) { return o.extVida; }).length;
+  var cards = [{ k: '', t: 'Interligações no CIDR', n: semSit.length, i: 'fa-route', cor: 'blue',
+                 sub: semSit.filter(function (o) { return o.classe === 'Duto'; }).length + ' dutos · ' +
+                      semSit.filter(function (o) { return o.classe !== 'Duto'; }).length + ' cabos/umbilicais' }];
+  PLH_DT_SIT.forEach(function (s) {
+    var n = semSit.filter(function (o) { return o.situacao === s.k; }).length;
+    if (!n && (s.k === 'Removido' || s.k === 'Desativado Permanentemente')) return;
+    cards.push({ k: s.k, t: s.k, n: n, i: s.i, cor: s.cor, sub: s.k === 'Em Operação' && nExt ? nExt + ' em extensão de vida útil (GIDES)' : '' });
+  });
+  document.getElementById('plhDtStats').innerHTML = cards.map(function (c) {
+    var ativo = (fs || '') === c.k && (c.k || !fs);
+    return '<div class="stat-card' + (fs && fs === c.k ? ' ativo' : '') + '" onclick="plhDtCard(\'' + plhE(c.k) + '\')" style="cursor:pointer' + (fs && fs === c.k ? ';border:2px solid #1976d2' : '') + '">' +
+      '<div class="stat-icon ' + c.cor + '"><i class="fas ' + c.i + '"></i></div><div class="stat-info"><h3>' + c.n + '</h3><p>' + plhE(c.t) + '</p>' +
+      (c.sub ? '<div class="plh-muted" style="font-size:11px;margin-top:2px">' + plhE(c.sub) + '</div>' : '') + '</div></div>';
+  }).join('');
+
+  // gráficos
+  if (typeof Chart !== 'undefined') {
+    var sits = PLH_DT_SIT.filter(function (s) { return semSit.some(function (o) { return o.situacao === s.k; }); });
+    var plats = {}; semSit.forEach(function (o) { plats[o.plat || '-'] = true; });
+    var pl = Object.keys(plats).sort();
+    drawChart('plhDtChartPlat', 'bar', {
+      labels: pl,
+      datasets: sits.map(function (s) {
+        return { label: s.k, backgroundColor: s.c, borderRadius: 3,
+                 data: pl.map(function (p) { return semSit.filter(function (o) { return (o.plat || '-') === p && o.situacao === s.k; }).length; }) };
+      })
+    }, { plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+         onClick: function (evt, els) {
+           if (!els.length) return;
+           document.getElementById('plhDtPlat').value = pl[els[0].index];
+           document.getElementById('plhDtSit').value = sits[els[0].datasetIndex].k;
+           plhRenderDutos();
+         } });
+    var fun = {}; semSit.forEach(function (o) { fun[o.funcao || '-'] = (fun[o.funcao || '-'] || 0) + 1; });
+    var fk = Object.keys(fun).sort(function (a, b) { return fun[b] - fun[a]; });
+    var paleta = ['#1976d2', '#00a085', '#F0A030', '#8e24aa', '#e53935', '#5f6b7c', '#26a69a', '#ab47bc', '#8d6e63', '#9AA5B1'];
+    drawChart('plhDtChartFuncao', 'doughnut', {
+      labels: fk, datasets: [{ data: fk.map(function (k) { return fun[k]; }), backgroundColor: fk.map(function (k, i) { return paleta[i % paleta.length]; }), borderWidth: 0 }]
+    }, { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '58%',
+         onClick: function (evt, els) { if (els.length) { document.getElementById('plhDtFuncao').value = fk[els[0].index]; plhRenderDutos(); } } });
+    var cfg = ['Rígido', 'Flexível'];
+    drawChart('plhDtChartConfig', 'bar', {
+      labels: cfg,
+      datasets: sits.map(function (s) {
+        return { label: s.k, backgroundColor: s.c, borderRadius: 3,
+                 data: cfg.map(function (c) { return semSit.filter(function (o) { return plhDtConfigTxt(o.config) === c && o.situacao === s.k; }).length; }) };
+      })
+    }, { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } } });
+  }
+
+  // tabela
+  var extTot = lista.reduce(function (s, o) { return s + (o.extM || 0); }, 0);
+  document.getElementById('plhDtCount').textContent = lista.length + ' interligaç' + (lista.length === 1 ? 'ão' : 'ões') +
+    (extTot ? ' · ' + plhDtFmtKm(extTot) + ' (extensão no GIDES)' : '');
+  var ordemSit = {}; PLH_DT_SIT.forEach(function (s, i) { ordemSit[s.k] = i; });
+  lista.sort(function (a, b) {
+    var sa = ordemSit[a.situacao] === undefined ? 9 : ordemSit[a.situacao], sb = ordemSit[b.situacao] === undefined ? 9 : ordemSit[b.situacao];
+    if (sa !== sb) return sa - sb;
+    if (a.plat !== b.plat) return a.plat < b.plat ? -1 : 1;
+    return a.nome < b.nome ? -1 : 1;
+  });
+  plhDt.lista = lista;
+  document.getElementById('plhDtBody').innerHTML = lista.length ? lista.map(function (o) {
+    var idade = o.anoOper ? (new Date().getFullYear() - o.anoOper) : null;
+    var dif = o.sitGides && !/extens/i.test(o.sitGides) && o.sitGides !== o.situacao
+      ? '<div class="plh-muted" style="font-size:10.5px" title="Situação no GIDES">GIDES: ' + plhE(o.sitGides) + '</div>' : '';
+    return '<tr><td><span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(o.id) + '\')"><strong>' + plhE(o.nome) + '</strong></span>' +
+      '<div class="plh-muted" style="font-size:11px">' + plhE([o.classe, plhDtConfigTxt(o.config), o.fluido].filter(function (x) { return x && x !== '-'; }).join(' · ')) + '</div></td>' +
+      '<td>' + plhE(o.funcao) + '</td>' +
+      '<td style="white-space:nowrap">' + plhE(o.origem || '-') + ' → ' + plhE(o.destino || '-') + '</td>' +
+      '<td>' + plhE(o.plat) + '</td>' +
+      '<td>' + plhDtSitChip(o) + dif + '</td>' +
+      '<td class="plh-num">' + (o.diam ? String(o.diam).replace('.', ',') : '-') + '</td>' +
+      '<td class="plh-num">' + plhDtFmtKm(o.extM) + '</td>' +
+      '<td class="plh-num">' + (o.anoOper ? o.anoOper + ' <span class="plh-muted">(' + idade + ' anos)</span>' : '-') + '</td>' +
+      '<td>' + plhE(o.spie || '-') + '</td>' +
+      '<td>' + plhE((o.pigInsp || '-') + ' / ' + (o.pigLimp || '-')) + '</td>' +
+      '<td style="font-size:11.5px">' + (o.procs && o.procs.length ? plhE(o.procs.join(', ')) : '<span style="color:#b3261e">nenhum</span>') + '</td></tr>';
+  }).join('') : '<tr><td colspan="11"><div class="empty-state"><h3>Nenhuma interligação com esses filtros</h3></div></td></tr>';
+}
+
+function plhDtCopiar() {
+  var l = plhDt.lista || [];
+  var cab = ['Interligação', 'Classe', 'Configuração', 'Fluido', 'Função', 'Origem', 'Destino', 'Plataforma resp.', 'Situação CIDR', 'Situação GIDES',
+             'Diâmetro (pol)', 'Extensão (m)', 'Ano de operação', 'SPIE', 'Pigável inspeção', 'Pigável limpeza', 'Procedimentos GIDES'];
+  var linhas = l.map(function (o) {
+    return [o.nome, o.classe, plhDtConfigTxt(o.config), o.fluido, o.funcao, o.origem, o.destino, o.plat, o.situacao, o.sitGides || '',
+            o.diam === null ? '' : String(o.diam).replace('.', ','), o.extM === null ? '' : o.extM, o.anoOper || '', o.spie, o.pigInsp, o.pigLimp,
+            (o.procs || []).join(', ')].map(function (v) { return String(v === undefined || v === null ? '' : v).replace(/[\t\n\r]+/g, ' '); }).join('\t');
+  });
+  var txt = [cab.join('\t')].concat(linhas).join('\n');
+  var ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  showAlert(ok ? l.length + ' linhas copiadas: cole no Excel' : 'Não foi possível copiar', ok ? 'success' : 'error');
 }
 
 /* ---------------- MATRIZ DE PLANEJAMENTO ---------------- */

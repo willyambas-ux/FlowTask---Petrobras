@@ -51,7 +51,11 @@ var PLH_COLS = {
        'Dt_Envio_Aprov','Aprovador','Dt_Conclusao','Resultado_TEADF_PIADF','Analise_MODA',
        'Class_Corrosao','Cod_Planej_Posterior','Status_Planej_Posterior','Eh_Ultimo'],
   Interligacoes: ['Nome','Objeto_BDIEP','Funcao','Instalacao_Resp','Inst_Origem','Inst_Destino',
-       'Classe','Fluido','Configuracao','Escopo_ANP','SPIE','Situacao']
+       'Classe','Fluido','Configuracao','Escopo_ANP','SPIE','Situacao','Agente_Descont','Ano_Construcao',
+       'Ano_Operacao','Atestado_Descomiss','Capacidade','Caract_Fluido','Classe_Pressao','Classif_Duto',
+       'Classif_Sistema','Codigo_Duto','Desinvestimento','Just_PMO','Just_PMOA','Local_Descont','Local_Instalacao',
+       'Motivo_NaoPig_Limpeza','Motivo_NaoPig_Inspecao','Necessario_PMCI','Norma','PDID','Pig_Inspecao',
+       'Pig_Limpeza','PMO','PMOA','Qual_Descont','Rotina_Pig','RTA_Descont','TAG_PSH','Tem_Descont']
 };
 
 /* ---------- registro da data de colagem ---------- */
@@ -128,6 +132,11 @@ function plhPlataforma_(x) {
   if (m) return m[1] + (m[2].length < 2 ? '0' + m[2] : m[2]);
   return p;
 }
+
+function plhNulo_(v) { var t = plhTxt_(v); return /^null$/i.test(t) ? '' : t.replace(/\.0$/, ''); }
+function plhAno_(v) { var n = plhNum_(plhNulo_(v)); return n && n > 1900 && n < 2100 ? Math.round(n) : null; }
+/** 'OL 12" PAT-2/PXA-3' → 12 */
+function plhDiametro_(nome) { var m = plhTxt_(nome).match(/(\d+(?:[.,]\d+)?)\s*"/); return m ? plhNum_(m[1]) : null; }
 
 function plhCorta_(s, n) {
   s = plhTxt_(s);
@@ -356,7 +365,7 @@ function getPlhData() {
       per: plhTxt_(r.Periodicidade), planej: plhTxt_(r.Planejamento), situacao: plhTxt_(r.Situacao_Duto),
       ult: plhIso_(ult), prox: plhIso_(prox), dias: dias, status: plhStatusPrazo_(dias, PLH_JANELA_PLANEJ),
       semAnterior: !ult, descCritica: plhNorm_(r.Tem_Descont_Critica) === 'sim',
-      tipoComp: plhTxt_(r.Tipo_Componente), vale: plhTxt_(r.Vale_Para)
+      tipoComp: plhTxt_(r.Tipo_Componente), vale: plhTxt_(r.Vale_Para), ext: plhNum_(r.Extensao_m)
     });
   });
 
@@ -435,7 +444,11 @@ function getPlhData() {
       destino: tD === 'Plataforma' ? plhPlataforma_(r.Inst_Destino) : plhTxt_(r.Inst_Destino),
       classe: plhTxt_(r.Classe), fluido: plhTxt_(r.Fluido), config: plhTxt_(r.Configuracao),
       anp: plhTxt_(r.Escopo_ANP), spie: plhTxt_(r.SPIE), situacao: plhTxt_(r.Situacao),
-      extVida: !!extVida[id], cadastro: 'CIDR'
+      extVida: !!extVida[id], cadastro: 'CIDR',
+      anoOper: plhAno_(r.Ano_Operacao) || plhAno_(r.Ano_Construcao), anoConstr: plhAno_(r.Ano_Construcao),
+      diam: plhDiametro_(r.Nome), sistema: plhTxt_(r.Classif_Sistema), norma: plhNulo_(r.Norma),
+      pressao: plhNulo_(r.Classe_Pressao), pigInsp: plhNulo_(r.Pig_Inspecao), pigLimp: plhNulo_(r.Pig_Limpeza),
+      pmo: plhNulo_(r.PMO), pmoa: plhNulo_(r.PMOA)
     };
     porId[id] = o; objetos.push(o);
   });
@@ -451,6 +464,22 @@ function getPlhData() {
   plan.forEach(function (p) { addEquip(p.objId, p.objeto, p.plat, p.situacao); });
   rts.forEach(function (r) { addEquip(r.objId, r.objeto, r.plat, ''); });
   patec.forEach(function (h) { addEquip(h.compId, h.comp, h.plat, ''); });
+  var extPor = {}, compVisto = {}, procsPor = {};
+  plan.forEach(function (p) {
+    if (!p.objId) return;
+    (procsPor[p.objId] = procsPor[p.objId] || {})[p.proc] = true;
+    if (!p.compId || compVisto[p.compId] || !p.ext) return;
+    compVisto[p.compId] = true;
+    extPor[p.objId] = (extPor[p.objId] || 0) + p.ext;
+  });
+  objetos.forEach(function (o) {
+    o.extM = extPor[o.id] ? Math.round(extPor[o.id]) : null;
+    o.procs = Object.keys(procsPor[o.id] || {}).sort();
+    if (o.cadastro === 'CIDR' && o.situacao && plan.some(function (p) { return p.objId === o.id; })) {
+      var sitG = plan.filter(function (p) { return p.objId === o.id; })[0].situacao;
+      o.sitGides = sitG;
+    }
+  });
   // nome da interligação → id, para ligar o histórico (que vem por nome) ao objeto
   var idPorNome = {};
   objetos.forEach(function (o) { idPorNome[plhNorm_(o.nome)] = o.id; });
