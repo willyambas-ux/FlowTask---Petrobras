@@ -171,10 +171,11 @@
 .plh-mx td.c:hover{outline:2px solid #1976d2;outline-offset:-2px}
 .plh-mx td.vazio{cursor:default;background:#fff}
 .plh-mx td.vazio:hover{outline:none}
-.plh-mx td.st-ok{background:#eaf7ef}
-.plh-mx td.st-12{background:#fff6e0}
-.plh-mx td.st-venc{background:#fde4e2}
-.plh-mx td.st-sem{background:#f5f7fa}
+.plh-mx .dt{font-size:10.5px;color:#7b8794;margin-top:1px;white-space:nowrap}
+.plh-dt-venc{color:#b3261e !important;font-weight:700}
+.plh-dt-12{color:#c26a00 !important;font-weight:700}
+.plh-sopx{font-size:9.5px;font-weight:700;color:#1976d2;letter-spacing:0}
+.plh-esq-c .fonte{font-weight:400;color:#9aa0ac;font-size:10px;margin-left:4px}
 .plh-mx td.falta{background:repeating-linear-gradient(45deg,#fff,#fff 5px,#fdecea 5px,#fdecea 10px);color:#b3261e;font-weight:700}
 .plh-mx .per{font-weight:600;color:#2c3e50;white-space:nowrap}
 .plh-mx .fl{font-size:9.5px;letter-spacing:.5px;margin-top:1px;white-space:nowrap}
@@ -336,15 +337,11 @@
     </div>
     <div id="plhMxTabela"></div>
     <div class="plh-mx-leg">
-      <span><i class="q" style="background:#eaf7ef"></i> Próxima inspeção no prazo</span>
-      <span><i class="q" style="background:#fff6e0"></i> Vence em até 12 meses</span>
-      <span><i class="q" style="background:#fde4e2"></i> Vencida</span>
+      <span>Próxima inspeção: <b class="plh-dt-venc">vencida</b> · <b class="plh-dt-12">vence em até 12 meses</b> · no prazo</span>
       <span><i class="q" style="background:repeating-linear-gradient(45deg,#fff,#fff 3px,#fdecea 3px,#fdecea 6px)"></i> Falta pela regra</span>
       <span><i class="fas fa-not-equal" style="color:#8e24aa"></i> Periodicidades diferentes</span>
       <span><i class="fas fa-ruler" style="color:#e67e22"></i> Fora do padrão</span>
-      <span><b style="color:#7b8794">d</b> Cadastrada em dias</span>
-      <span><b style="color:#1976d2">1×</b> Vale só para a próxima</span>
-      <span><i class="fas fa-left-right" style="color:#b3261e"></i> Lados do riser diferentes</span>
+      <span><span class="plh-sopx">só a próxima</span> "Vale para: Próximo" no GIDES (a periodicidade vale só para a próxima inspeção)</span>
     </div>
     <div class="plh-section">
       <div class="dashboard-section-title" style="margin:6px 0 10px"><i class="fas fa-oil-well" style="color:#00a085"></i> Jaquetas: periodicidade por nível</div>
@@ -1057,7 +1054,17 @@ function plhMxLimpar() {
 }
 function plhMxFiltro(k) { plhMx.filtro = plhMx.filtro === k ? null : k; plhRenderMatriz(); }
 function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.posicao || f.foraPadrao || f.divergente || f.valeProximo; }
-/** "72 Meses" → "72m" · "3160 Dias" → "3160d" */
+/** "72 Meses" → "72 meses" · "3160 Dias" → "3160 dias" */
+function plhMxPerTxt(txt) {
+  var t = String(txt || '').toLowerCase(), n = (t.match(/[\d.,]+/) || [''])[0];
+  return n ? n + (/dia/.test(t) ? ' dias' : /ano/.test(t) ? ' anos' : ' meses') : String(txt || '');
+}
+/** data da próxima inspeção colorida: vermelha vencida, laranja até 12 meses */
+function plhMxData(iso, dias) {
+  if (!iso) return '';
+  var cls = dias === null || dias === undefined ? '' : dias < 0 ? 'plh-dt-venc' : dias <= 365 ? 'plh-dt-12' : '';
+  return '<span class="' + cls + '">' + plhE(plhDataBR(iso)) + '</span>';
+}
 function plhMxPer(txt) {
   var t = String(txt || '').toLowerCase(), n = (t.match(/[\d.,]+/) || [''])[0];
   return n ? n + (/dia/.test(t) ? 'd' : /ano/.test(t) ? 'a' : 'm') : txt;
@@ -1130,19 +1137,19 @@ function plhRenderMatriz() {
         var dica = x.lados ? 'Riser: ' + x.lados.em + ' componente(s) com inspeção emersa e ' + x.lados.sub + ' com submersa' : 'Exigido pela regra e não cadastrado';
         return '<td class="c falta"' + onclick + ' title="' + plhE(dica) + '">' + (x.lados ? '<i class="fas fa-left-right"></i>' : 'falta') + '</td>';
       }
-      var st = x.dias === null ? 'st-sem' : x.dias < 0 ? 'st-venc' : x.dias <= 365 ? 'st-12' : 'st-ok';
-      var pers = {}; x.itens.forEach(function (i) { pers[plhMxPer(i.per)] = true; });
+      var pers = {}; x.itens.forEach(function (i) { pers[plhMxPerTxt(i.per)] = true; });
       var flags = (x.divergente ? '<i class="fas fa-not-equal" style="color:#8e24aa"></i>' : '') +
         (x.foraPadrao ? '<i class="fas fa-ruler" style="color:#e67e22"></i>' : '') +
-        (x.valeProximo ? '<b style="color:#1976d2">1×</b>' : '') +
+        (x.valeProximo ? ' <span class="plh-sopx">só a próxima</span>' : '') +
         (x.lados ? '<i class="fas fa-left-right" style="color:#b3261e"></i>' : '') +
         (x.faltam.length ? '<i class="fas fa-square-minus" style="color:#b3261e"></i>' : '');
       var dica2 = x.n + ' componente(s) · ' + Object.keys(pers).join(', ') + (x.prox ? ' · próxima ' + plhDataBR(x.prox) : '');
-      return '<td class="c ' + st + '"' + onclick + ' title="' + plhE(dica2) + '"><div class="per">' + plhE(Object.keys(pers).join(' / ')) + '</div>' +
+      return '<td class="c"' + onclick + ' title="' + plhE(dica2) + '"><div class="per">' + plhE(Object.keys(pers).join(' / ')) + '</div>' +
+        (x.prox ? '<div class="dt">próxima ' + plhMxData(x.prox, x.dias) + '</div>' : '') +
         (flags ? '<div class="fl">' + flags + '</div>' : '') + '</td>';
     }).join('');
     var nomeObj = l.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(l.objId) + '\')">' + plhE(l.objeto) + '</span>' : plhE(l.objeto);
-    var sub = l.flags.semPlano ? 'Sem planejamento · ' + (l.situacao || '') : (l.situacao || '') + ' · ' + l.nComps + ' comp.';
+    var sub = l.flags.semPlano ? 'Sem planejamento · ' + (l.situacao || '') : (l.situacao || '') + ' · ' + l.nComps + (l.nComps === 1 ? ' componente' : ' componentes');
     var temEsq = l.esq && l.esq.comps && l.esq.comps.length;
     var aberto = temEsq && plhMx.abertos[l.objeto];
     var seta = temEsq ? '<button class="plh-esq-tg" onclick="plhMxAbrir(' + li + ')" title="Ver os componentes por posição">' +
@@ -1181,25 +1188,28 @@ window.addEventListener('resize', function () { if (currentView === 'plhMatriz')
 
 function plhMxCompCard(c) {
   var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : c.estado === 'semplano' ? 'semplano' : c.estado === 'foraanp' ? 'foraanp' : c.estado === 'naoclass' || c.estado === 'acessorio' ? 'foraanp' : '';
-  var fonteCor = { 'CIDR (ordem)': ['#e6faf6', '#00a085'], 'corrigido': ['#e6faf6', '#00a085'], 'GIDES (local)': ['#e8f1fb', '#1976d2'],
-                   'ICPI': ['#e8f1fb', '#1976d2'], 'deduzido': ['#fff6e0', '#a15c00'], 'ponta única': ['#eef1f4', '#5f6b7c'] }[c.ladoFonte];
-  var tags = (c.lado && c.ladoFonte && fonteCor && !c.provavel ? '<span class="plh-esq-tag" style="background:' + fonteCor[0] + ';color:' + fonteCor[1] + '" title="De onde veio o lado">lado: ' + plhE(c.ladoFonte) + '</span>' : '') +
+  // o lado vem normalmente da ordem do CIDR; só mostra (discreto) quando veio de outra fonte
+  var fonteTxt = { 'GIDES (local)': 'lado pelo local de instalação do GIDES', 'ICPI': 'lado pelo ICPI', 'deduzido': 'lado deduzido',
+                   'ponta única': 'única plataforma do duto', 'corrigido': 'lado corrigido' }[c.ladoFonte];
+  var tags = (c.lado && fonteTxt && !c.provavel ? '<span class="fonte">(' + plhE(fonteTxt) + ')</span>' : '') +
     (c.ladoConflitoICPI ? '<span class="plh-esq-tag" style="background:#fde4e2;color:#b3261e" title="O ICPI aponta outra UEP para esta demanda">ICPI: ' + plhE(c.ladoConflitoICPI) + '</span>' : '') +
     (c.provavel ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O CIDR não informa o tipo: posição deduzida pela extensão">posição provável</span>' : '') +
-    (c.posManual ? '<span class="plh-esq-tag" style="background:#e6faf6;color:#00a085" title="Posição corrigida na aba PLH_Componentes">posição corrigida</span>' : '') +
+
     (c.ladoDuvida ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O ICPI aponta mais de uma UEP">ICPI: ' + plhE(c.ladoDuvida) + '</span>' : '');
   var procs = c.itens.map(function (i) {
-    var cor = i.dias === null ? '' : i.dias < 0 ? 'background:#fde4e2;color:#b3261e' : i.dias <= 365 ? 'background:#fff6e0;color:#7a4b00' : '';
-    return '<span style="' + cor + '" title="' + plhE(i.proc + ' · ' + i.per + ' · última ' + plhDataBR(i.ult) + ' · próxima ' + plhDataBR(i.prox) + (i.vale ? ' · vale para ' + i.vale : '')) + '">' +
-      plhE(i.proc) + ' · ' + plhE(plhMxPer(i.per)) + (i.prox ? ' · ' + plhE(plhDataBR(i.prox).slice(3)) : '') + '</span>';
+    return '<span title="' + plhE(i.proc + ' · ' + i.per + ' · última ' + plhDataBR(i.ult) + ' · próxima ' + plhDataBR(i.prox) + (i.vale ? ' · vale para ' + i.vale : '')) + '">' +
+      plhE(i.proc) + ' · ' + plhE(plhMxPerTxt(i.per)) + (i.prox ? ' · próxima ' + plhMxData(i.prox, i.dias) : '') +
+      (/pr[oó]xim/i.test(i.vale || '') ? ' <span class="plh-sopx">só a próxima</span>' : '') + '</span>';
   }).join('');
-  var ext = c.ext === null || c.ext === undefined ? '' : (c.ext >= 1000 ? (c.ext / 1000).toFixed(1).replace('.', ',') + ' km' : String(Math.round(c.ext * 10) / 10).replace('.', ',') + ' m');
+  var num = function (v) { return String(Math.round(v * 1000) / 1000).replace('.', ','); };
+  var ext = c.ext === null || c.ext === undefined ? '' : (c.ext >= 1000 ? (c.ext / 1000).toFixed(1).replace('.', ',') + ' quilômetros' : num(c.ext) + ' metros');
   return '<div class="plh-esq-c ' + est + '"><div class="n" title="' + plhE(c.comp) + '">' + plhE(c.comp.replace(/^(Riser|Trecho) (Rígido|Flexível) /, '')) + tags + '</div>' +
-    '<div class="m">' + plhE([c.tipo, c.ordem !== null && c.ordem !== undefined ? 'ordem ' + c.ordem : '', ext, c.dn ? 'Ø ' + String(c.dn).replace('.', ',') + '"' : '', c.esp ? 'esp. ' + String(c.esp).replace('.', ',') + '"' : ''].filter(String).join(' · ')) + '</div>' +
+    '<div class="m">' + plhE([c.tipo, c.ordem !== null && c.ordem !== undefined ? 'ordem ' + c.ordem : '', ext,
+      c.dn ? 'diâmetro ' + num(c.dn) + ' pol' : '', c.esp ? 'espessura ' + num(c.esp) + ' pol' : ''].filter(String).join(' · ')) + '</div>' +
     (procs ? '<div class="p">' + procs + '</div>' : '') +
     (c.estado === 'semplano' ? '<div class="sub" style="color:#b3261e">sem planejamento' + (c.esperado ? ' · esperado ' + plhE(c.esperado) : '') + '</div>' : '') +
     (c.estado === 'foraanp' ? '<div class="m">fora do escopo ANP · sem planejamento</div>' : '') +
-    (c.estado === 'naoclass' ? '<div class="m">sem planejamento · tipo não informado no CIDR (ex.: trecho na plataforma)</div>' : '') +
+    (c.estado === 'naoclass' ? '<div class="m">sem planejamento · tipo não informado no CIDR</div>' : '') +
     (c.estado === 'acessorio' ? '<div class="m">sem planejamento</div>' : '') +
     (c.subst ? '<div class="sub"><i class="fas fa-right-left"></i> ' + plhE(c.subst) + '</div>' : '') +
     (c.estado === 'falta' ? '<div class="sub" style="color:#b3261e">sem ' + plhE(c.esperado) + '</div>' : '') +
@@ -1215,15 +1225,13 @@ function plhMxEsqueleto(l) {
         : '<div class="plh-esq-vazio">Nenhum componente nesta posição</div>') + '</div>';
   }).join('');
   var fora = e.fora.length ? '<div class="plh-esq-fora"><div class="plh-muted" style="font-size:11px;width:100%">' +
-    (e.posicoes.length ? 'Fora das posições (equipamento, trecho terrestre, outros componentes ou sem lado):' : 'Componentes:') + '</div>' +
+    (e.posicoes.length ? 'Outros componentes do duto:' : 'Componentes:') + '</div>' +
     e.fora.map(function (c) {
       return '<div><div class="plh-muted" style="font-size:10.5px;font-weight:700;margin-bottom:3px">' + plhE(({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' })[c.pos] || c.pos) +
         (c.lado ? ' ' + plhE(c.lado) : '') + '</div>' + plhMxCompCard(c) + '</div>';
     }).join('') + '</div>' : '';
-  var link = m.compGid !== null && m.compGid !== undefined
-    ? ' <span class="plh-link" style="font-size:11.5px" onclick="plhAbrirPlanilha(' + Number(m.compGid) + ')">corrigir posição, lado ou anotar motivo na aba PLH_Componentes</span>' : '';
   var al = e.alertas.length ? '<div class="plh-esq-al"><i class="fas fa-triangle-exclamation"></i> ' + e.alertas.map(plhE).join('<br><i class="fas fa-triangle-exclamation"></i> ') + '</div>' : '';
-  return (fila ? '<div class="plh-esq-fila">' + fila + '</div>' : '') + fora + al + '<div style="margin-top:8px">' + link + '</div>';
+  return (fila ? '<div class="plh-esq-fila">' + fila + '</div>' : '') + fora + al;
 }
 
 function plhRenderMatrizJaq(fp, q) {
@@ -1236,7 +1244,7 @@ function plhRenderMatrizJaq(fp, q) {
   var nomes = Object.keys(plats).sort();
   var el = document.getElementById('plhMxJaq');
   if (!nomes.length) { el.innerHTML = '<div class="plh-muted">Nenhuma jaqueta com esses filtros</div>'; return; }
-  var fmt = function (d) { if (!d) return '-'; return d % 365 === 0 ? (d / 365) + ' anos' : Math.round(d / 30.4375) + 'm'; };
+  var fmt = function (d) { if (!d) return '-'; return d % 365 === 0 ? (d / 365) + ' anos' : Math.round(d / 30.4375) + ' meses'; };
   var corpo = nomes.map(function (p) {
     var any = plats[p][Object.keys(plats[p])[0]];
     return '<tr><td class="nome"><div class="o">' + plhE(any.plataforma) + '</div><div class="s">' + plhE(any.acesso || '') + '</div></td>' +
@@ -1244,11 +1252,10 @@ function plhRenderMatrizJaq(fp, q) {
         var j = plats[p][n];
         if (!j) return '<td class="c vazio"></td>';
         if (!j.plano) return '<td class="c falta" title="Sem plano cadastrado">sem plano</td>';
-        var st = j.dias === null ? 'st-sem' : j.dias < 0 ? 'st-venc' : j.dias <= 365 ? 'st-12' : 'st-ok';
         var dica = 'Plano ' + j.plano + ' · ' + (j.per ? j.per + ' dias' : 'sem periodicidade') + ' · próxima ' + plhDataBR(j.prox) + ' · ' + j.status +
           (j.plancor ? ' · No PLANCOR (' + j.plancor + ')' : '');
-        return '<td class="c ' + st + '" title="' + plhE(dica) + '" onclick="plhAbrirFicha(\'plat\',\'' + plhE(j.plat) + '\')">' +
-          '<div class="per">' + plhE(fmt(j.per)) + '</div><div class="fl" style="color:#7b8794">' + plhE(j.prox ? plhDataBR(j.prox).slice(3) : '') + '</div></td>';
+        return '<td class="c" title="' + plhE(dica) + '" onclick="plhAbrirFicha(\'plat\',\'' + plhE(j.plat) + '\')">' +
+          '<div class="per">' + plhE(fmt(j.per)) + '</div>' + (j.prox ? '<div class="dt">próxima ' + plhMxData(j.prox, j.dias) + '</div>' : '') + '</td>';
       }).join('') + '</tr>';
   }).join('');
   el.innerHTML = '<div class="plh-mx-wrap" style="max-height:none"><table class="plh-mx"><thead><tr><th class="nome" style="top:0;text-transform:none">Plataforma</th>' +

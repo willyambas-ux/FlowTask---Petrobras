@@ -1552,7 +1552,8 @@ var PLH_POS_ESPERADO = {
 function plhLerComponentes_(ss) {
   var res = { sh: null, gid: null, porId: {}, limite: PLH_COMP_LIMITE_PADRAO, erro: '', linhas: 0 };
   var sh = ss.getSheetByName(PLH_ABA_COMP);
-  if (!sh) {
+  if (!sh) return res; // aba opcional: o usuário preferiu não manter correções manuais
+  if (false) {
     try {
       sh = ss.insertSheet(PLH_ABA_COMP);
       sh.getRange(1, 1, 1, PLH_COMP_COLS.length).setValues([PLH_COMP_COLS])
@@ -1754,13 +1755,14 @@ function plhEsqueleto_(l, obj, comps, cidr) {
   var fora = out.filter(function (c) { return !usados[c.chave]; }).sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); });
   fora.forEach(function (c) {
     if (c.pos === 'equip' || c.pos === 'terra' || c.pos === 'outro') return;
-    alertas.push(c.comp + ': ' + PLH_POS_ROTULO[c.pos] + (c.lado ? ' lado ' + c.lado + ' (não é ponta do duto no CIDR)' : ' sem lado identificado') + ': informe na aba PLH_Componentes');
+    alertas.push(c.comp + ': ' + PLH_POS_ROTULO[c.pos] + (c.lado ? ' lado ' + c.lado + ' (não é ponta do duto no CIDR)' : ' sem lado identificado'));
   });
   return { mat: mat, pontas: pontas, posicoes: posicoes, fora: fora, alertas: alertas, comps: out };
 }
 
 /** Acrescenta na aba os componentes que ainda não estão lá (não altera linhas existentes). */
 function plhGravarComponentes_(comps, linhas) {
+  return; // desativado: as correções manuais não são usadas
   if (!comps.sh) return;
   var novas = [];
   linhas.forEach(function (l) {
