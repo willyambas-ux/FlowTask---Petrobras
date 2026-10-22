@@ -170,7 +170,10 @@
 .plh-mx td.c{min-width:64px;text-align:center;cursor:pointer;height:38px;padding:4px 6px !important}
 .plh-mx td.c .pl+.pl{margin-top:3px;padding-top:3px;border-top:1px dashed #edf0f3}
 .plh-mx td.c:hover{outline:2px solid #1976d2;outline-offset:-2px}
-.plh-mx td.vazio{cursor:default;background:#eef0f3;border-color:#e4e7eb}
+.plh-mx td.vazio{cursor:default;background:#f7f8fa}
+.plh-mx tr.aberto>td{border-top:2px solid #b9d4f5}
+.plh-mx tr.aberto>td.nome{box-shadow:inset 3px 0 0 #1976d2}
+.plh-mx tr.plh-esq-linha>td{border-bottom:2px solid #b9d4f5;box-shadow:inset 3px 0 0 #1976d2}
 .plh-mx td.vazio:hover{outline:none}
 .plh-mx .dt{font-size:10.5px;color:#7b8794;margin-top:1px;white-space:nowrap}
 .plh-dt-venc{color:#b3261e !important;font-weight:700}
@@ -1131,6 +1134,7 @@ function plhRenderMatriz() {
     '<tr>' + cols.map(function (c) { return '<th>' + plhE(c.proc) + '</th>'; }).join('') + '</tr>';
 
   var corpo = '', platAtual = null;
+  var larguraEsq = Math.max((document.getElementById('plhMxTabela').clientWidth || 1000) - 2, 320);
   lista.forEach(function (l) {
     if (l.plat !== platAtual) {
       platAtual = l.plat;
@@ -1173,10 +1177,10 @@ function plhRenderMatriz() {
     var aberto = temEsq && plhMx.abertos[l.objeto];
     var seta = temEsq ? '<button class="plh-esq-tg" onclick="plhMxAbrir(' + li + ')" title="Ver os componentes por posição">' +
       '<i class="fas fa-chevron-' + (aberto ? 'down' : 'right') + '"></i></button>' : '<span class="plh-esq-tg vazio"></span>';
-    corpo += '<tr class="' + (l.flags.semPlano ? 'semplano' : '') + '"><td class="nome"><div class="o" title="' + plhE(l.objeto) + '">' + seta + nomeObj +
+    corpo += '<tr class="' + (l.flags.semPlano ? 'semplano' : '') + (aberto ? ' aberto' : '') + '"><td class="nome"><div class="o" title="' + plhE(l.objeto) + '">' + seta + nomeObj +
       (l.flags.posicao ? ' <i class="fas fa-diagram-next" style="color:#b3261e;font-size:10px" title="' + plhE(l.esq.alertas.join('\n')) + '"></i>' : '') + '</div>' +
       '<div class="s" title="' + plhE(sub) + '" style="padding-left:20px">' + plhE(sub) + '</div></td>' + celulas + '</tr>';
-    if (aberto) corpo += '<tr class="plh-esq-linha"><td colspan="' + (cols.length + 1) + '"><div class="plh-esq">' + plhMxEsqueleto(l, li) + '</div></td></tr>';
+    if (aberto) corpo += '<tr class="plh-esq-linha"><td colspan="' + (cols.length + 1) + '"><div class="plh-esq" style="width:' + larguraEsq + 'px">' + plhMxEsqueleto(l, li) + '</div></td></tr>';
   });
   document.getElementById('plhMxTabela').innerHTML = lista.length
     ? '<div class="plh-mx-wrap" id="plhMxWrap"><table class="plh-mx"><thead>' + cab + '</thead><tbody>' + corpo + '</tbody></table></div>'
