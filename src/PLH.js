@@ -1486,7 +1486,7 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
   ordem.forEach(function (k) { linhas[k].esq = plhEsqueleto_(linhas[k], objPorId[linhas[k].objId], comps, porDuto[linhas[k].objId] || []); });
   plhGravarComponentes_(comps, ordem.map(function (k) { return linhas[k]; }));
 
-  var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+  var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, abaixoRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
   var lista = ordem.map(function (k) {
     var l = linhas[k];
     var cel = {};
@@ -1502,23 +1502,24 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
         prox: prox, dias: diasMin,
         divergente: Object.keys(pers).length > 1,
         foraPadrao: it.some(function (i) { return i.foraPadrao; }),
+        abaixoRef: it.some(function (i) { return i.abaixoRef; }),
         emDias: it.some(function (i) { return i.emDias; }),
         valeProximo: it.some(function (i) { return /pr[oó]xim/i.test(i.vale); }),
         semRegra: it.length > 0 && it.every(function (i) { return i.semRegra; }),
         lados: (l.lados || []).filter(function (x) { return x.proc === proc; })[0] || null
       };
     });
-    var flags = { semPlano: l.nPlanos === 0, posicao: l.esq ? l.esq.alertas.length : 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+    var flags = { semPlano: l.nPlanos === 0, posicao: l.esq ? l.esq.alertas.length : 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, abaixoRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
     Object.keys(cel).forEach(function (p) {
       var c = cel[p];
       if (c.faltam.length) flags.faltando++;
-      ['foraPadrao', 'divergente', 'emDias', 'valeProximo', 'semRegra'].forEach(function (f) { if (c[f]) flags[f]++; });
+      ['foraPadrao', 'abaixoRef', 'divergente', 'emDias', 'valeProximo', 'semRegra'].forEach(function (f) { if (c[f]) flags[f]++; });
       if (c.dias !== null && c.dias < 0) flags.vencidas++;
     });
     resumo.objetos++;
     if (flags.semPlano) resumo.semPlano++;
     if (flags.posicao) resumo.posicao++;
-    ['lados', 'faltando', 'foraPadrao', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
+    ['lados', 'faltando', 'foraPadrao', 'abaixoRef', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
     return { objId: l.objId, objeto: l.objeto, plat: l.plat, situacao: l.situacao, classe: l.classe,
              nPlanos: l.nPlanos, nComps: Object.keys(l.comps).length, cel: cel, flags: flags, lados: l.lados || [], esq: l.esq };
   });
