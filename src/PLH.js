@@ -270,7 +270,7 @@ function plhLerICPI_(ss) {
  *  inclusive os sem planejamento. Lido pelo nome do cabeçalho (o export pode mudar de ordem).
  *  O código BDIEP é reconhecido pelo conteúdo (OBJBDIEP:nnn): o que for de duto vira o duto, o resto é o componente. */
 var PLH_ABA_COMPCIDR = 'SRC_Componentes';
-function plhLerCompCIDR_(ss, objetos) {
+function plhLerCompCIDR_(ss, objetos, plan) {
   var props = PropertiesService.getDocumentProperties();
   var info = { base: 'Componentes', sistema: 'CIDR', aba: PLH_ABA_COMPCIDR, linhas: 0, ok: false, erro: '', opcional: true,
                atualizado: props.getProperty('PLH_ATUALIZADO_' + PLH_ABA_COMPCIDR) || '' };
@@ -300,6 +300,8 @@ function plhLerCompCIDR_(ss, objetos) {
   var idObj = {}, idPorNome = {};
   objetos.forEach(function (o) { idObj[o.id] = o; idPorNome[plhNorm_(o.nome)] = o.id; });
   var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
+  var normPonta = function (x) { var t = plhTxt_(x); return plhEhPlataforma_(t) ? plhPlataforma_(t) : plhNorm_(t); };
+  var linhasC = [];
   for (var j = h + 1; j < vals.length; j++) {
     var r = vals[j];
     if (!r.some(function (v) { return plhTxt_(v) !== ''; })) continue;
@@ -309,15 +311,60 @@ function plhLerCompCIDR_(ss, objetos) {
     var compNome = plhTxt_(g(r, 'comp'));
     var compId = ids.filter(function (x) { return x !== dutoId; })[0] || '';
     if (!compId) { var b = compNome.match(/\[(\d+)\]/); if (b) compId = 'OBJBDIEP:' + b[1]; }
-    var tipo = plhTxt_(g(r, 'tipo')) || compNome.split('[')[0].trim();
-    var c = { id: compId, nome: compNome || (tipo + (compId ? ' [' + compId.split(':')[1] + ']' : '')), tipo: tipo,
+    var tipo = plhTxt_(g(r, 'tipo')) || (compNome ? compNome.split('[')[0].trim() : '');
+    linhasC.push({ dutoId: dutoId, id: compId, nome: compNome, tipo: tipo,
               ext: plhNumC_(g(r, 'ext')), esp: plhNumC_(g(r, 'esp')), vida: plhNumC_(g(r, 'vida')),
               dn: plhNumC_(g(r, 'dn')), anp: plhNulo_(g(r, 'anp')), situacao: plhNulo_(g(r, 'sit')),
-              local: plhEhPlataforma_(g(r, 'local')) ? plhPlataforma_(g(r, 'local')) : '' };
-    res.total++;
-    if (!dutoId) { res.semDuto++; continue; }
-    (res.porDuto[dutoId] = res.porDuto[dutoId] || []).push(c);
+              local: plhEhPlataforma_(g(r, 'local')) ? plhPlataforma_(g(r, 'local')) : '',
+              trio: [normPonta(g(r, 'resp')), normPonta(g(r, 'orig')), normPonta(g(r, 'dest'))].join('|') });
   }
+  res.total = linhasC.length;
+
+  // Sem nome/código do duto no export: liga pelos blocos de linhas seguidas com a mesma
+  // Inst. Resp. + Origem + Destino, desempatando pelo diâmetro (do nome do duto) — cabo/umbilical não tem diâmetro.
+  if (linhasC.length && !linhasC.some(function (c) { return c.dutoId; })) {
+    var blocos = [];
+    linhasC.forEach(function (c) {
+      var u = blocos[blocos.length - 1];
+      if (u && u.trio === c.trio) u.linhas.push(c); else blocos.push({ trio: c.trio, linhas: [c], usado: false });
+    });
+    blocos.forEach(function (bl) {
+      var cont = {};
+      bl.linhas.forEach(function (c) { if (c.dn) cont[c.dn] = (cont[c.dn] || 0) + 1; });
+      var ks = Object.keys(cont).sort(function (a, b) { return cont[b] - cont[a]; });
+      bl.dn = ks.length ? Number(ks[0]) : null;
+    });
+    objetos.filter(function (o) { return o.cadastro === 'CIDR'; }).forEach(function (o) {
+      var trio = [o.plat, o.origem, o.destino].map(normPonta).join('|');
+      var flex = /flex/i.test(String(o.config || '').replace(/\u00ad/g, ''));
+      var bl = blocos.filter(function (b) {
+        if (b.usado || b.trio !== trio) return false;
+        if (o.diam) return b.dn === o.diam;
+        return flex ? !b.dn : true;
+      })[0];
+      if (!bl) return;
+      bl.usado = true;
+      bl.linhas.forEach(function (c) { c.dutoId = o.id; c.porBloco = true; });
+    });
+  }
+
+  // componente sem código: casa com o planejamento pela extensão (mesmo duto)
+  var planPor = {};
+  (plan || []).forEach(function (p) {
+    if (!p.objId || !p.compId || p.ext === null || p.ext === undefined) return;
+    var lst = planPor[p.objId] = planPor[p.objId] || [];
+    if (!lst.some(function (x) { return x.compId === p.compId; })) lst.push({ compId: p.compId, comp: p.comp, tipo: p.tipoComp, ext: p.ext, usado: false });
+  });
+  linhasC.forEach(function (c) {
+    if (c.id || !c.dutoId || c.ext === null) return;
+    var m = (planPor[c.dutoId] || []).filter(function (x) { return !x.usado && Math.abs(x.ext - c.ext) < 0.01; })[0];
+    if (m) { m.usado = true; c.id = m.compId; c.nome = m.comp; c.tipo = m.tipo; c.porExtensao = true; }
+  });
+  linhasC.forEach(function (c) {
+    if (!c.dutoId) { res.semDuto++; return; }
+    if (!c.nome) c.nome = c.tipo || 'Componente CIDR';
+    (res.porDuto[c.dutoId] = res.porDuto[c.dutoId] || []).push(c);
+  });
   info.ok = true;
   info.linhas = res.total;
   if (res.total && res.semDuto === res.total) info.aviso = 'Nenhuma linha ligada a um duto: inclua a coluna com o nome ou o código BDIEP do duto';
@@ -605,7 +652,7 @@ function getPlhData() {
   var plancorRes = plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje);
   if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
-  var compCIDR = plhLerCompCIDR_(ss, objetos);
+  var compCIDR = plhLerCompCIDR_(ss, objetos, plan);
   var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows, compCIDR);
 
   /* --- Pendências (lista de trabalho única) --- */
@@ -1560,11 +1607,12 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     if (c.id && comPlano[c.id]) return;
     lista.push({ chave: c.id || ('CIDR' + i + '|' + (l.objId || l.objeto)), compId: c.id, comp: c.nome, tipo: c.tipo, ext: c.ext,
                  local: c.local, procs: {}, itens: [], ladosICPI: {}, semPlano: true,
-                 foraANP: /^n/i.test(c.anp || ''), situacao: c.situacao });
+                 foraANP: !/^s/i.test(c.anp || ''), anp: c.anp, situacao: c.situacao });
   });
   if (!lista.length) return null;
   var tipoTxt = lista.map(function (c) { return plhNorm_(c.tipo); }).join(' ');
   var mat = /rigido/.test(tipoTxt) ? 'rigido' : /flexivel/.test(tipoTxt) ? 'flexivel' : null;
+  if (!mat && obj && obj.config) { var cf = plhNorm_(String(obj.config).replace(/\u00ad/g, '')); mat = /rigido/.test(cf) ? 'rigido' : /flexivel/.test(cf) ? 'flexivel' : null; }
   var esperado = mat ? PLH_POS_ESPERADO[mat] : {};
   // pontas do duto (CIDR): só plataforma tem riser
   var pontas = [];
@@ -1575,6 +1623,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     var t = plhNorm_(c.tipo), auto = '';
     var nomesP = Object.keys(c.procs);
     if (nomesP.length && nomesP.every(function (x) { return /^(FAIXA|EXT_)/.test(x); })) auto = 'terra';
+    else if (c.semPlano && !t) auto = 'indef';
     else if (c.semPlano && !/riser|trecho|flow/.test(t)) auto = /anm|plem|j-tube/.test(t) ? 'equip' : 'outro';
     else if (/trecho|flow/.test(t)) auto = 'leito';
     else if (/riser rigido/.test(t)) {
@@ -1589,7 +1638,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     var ladoAuto = c.local || (ladosAuto.length === 1 ? ladosAuto[0] : '');
     var corr = comps.porId[c.chave] || {};
     var pos = corr.pos || auto, lado = corr.lado || ladoAuto;
-    if (pos === 'leito' || pos === 'equip' || pos === 'terra' || pos === 'outro') lado = corr.lado || '';
+    if (pos === 'leito' || pos === 'equip' || pos === 'terra' || pos === 'outro' || pos === 'indef') lado = corr.lado || '';
     // lado sobrando: duto com só uma plataforma nas pontas
     if (!lado && (pos === 'emerso' || pos === 'submerso' || pos === 'riser') && pontas.length === 1) lado = pontas[0];
     var esp = esperado[pos];
@@ -1604,7 +1653,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
       else estado = 'falta';
     }
     if (c.semPlano) estado = c.foraANP ? 'foraanp' : 'semplano';
-    if (c.semPlano && c.foraANP && (pos === 'emerso' || pos === 'submerso' || pos === 'riser' || pos === 'leito')) pos = 'outro';
+    if (c.semPlano && c.foraANP && (pos === 'emerso' || pos === 'submerso' || pos === 'riser' || pos === 'leito' || pos === 'indef')) pos = 'outro';
     var dc = cidrPor[c.compId] || {};
     out.push({
       chave: c.chave, compId: c.compId, comp: c.comp, tipo: c.tipo, ext: c.ext === undefined ? null : c.ext,
@@ -1612,7 +1661,7 @@ function plhEsqueleto_(l, obj, comps, cidr) {
       ladoDuvida: !c.local && ladosAuto.length > 1 ? ladosAuto.join('/') : '',
       motivo: corr.motivo || '', procs: nomes.sort(), estado: estado, subst: subst, semPlano: !!c.semPlano,
       esp: dc.esp === undefined ? null : dc.esp, dn: dc.dn === undefined ? null : dc.dn, vida: dc.vida === undefined ? null : dc.vida,
-      anp: dc.anp || '', sitComp: dc.situacao || c.situacao || '',
+      anp: dc.anp || c.anp || '', sitComp: dc.situacao || c.situacao || '',
       esperado: esp ? esp.base.join(' + ') : '',
       itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej }; })
     });
@@ -1641,6 +1690,27 @@ function plhEsqueleto_(l, obj, comps, cidr) {
     var vaz2 = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
     if (semLadoSP.length === 1 && vaz2.length === 1) { semLadoSP[0].lado = vaz2[0].lado; semLadoSP[0].ladoDeduzido = true; }
   });
+  // componentes do CIDR sem tipo e sem plano: ocupam as posições vazias pela extensão
+  // (o maior até o limite → riser emerso; até 100 m → riser submerso; acima → leito). O resto fica como "outro".
+  var indef = out.filter(function (c) { return c.pos === 'indef'; }).sort(function (a, b) { return (b.ext || 0) - (a.ext || 0); });
+  slots.forEach(function (sl) {
+    if (out.some(function (c) { return c.pos !== 'indef' && noSlot(c, sl); })) return;
+    var cabe = function (e) {
+      if (sl.pos === 'riser') return true; // cabo/umbilical: o CIDR não traz extensão por ponta
+      if (e === null || e === undefined) return false;
+      if (sl.pos === 'emerso') return e >= 1 && e <= comps.limite;
+      if (sl.pos === 'submerso') return e > comps.limite && e <= 100;
+      if (sl.pos === 'leito') return e > 100;
+      if (sl.pos === 'riser') return true;
+      return false;
+    };
+    var c = indef.filter(function (x) { return x.pos === 'indef' && cabe(x.ext); })[0];
+    if (!c) return;
+    c.pos = sl.pos; c.lado = sl.lado; c.provavel = true;
+    c.esperado = esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '';
+  });
+  out.forEach(function (c) { if (c.pos === 'indef') { c.pos = 'outro'; if (c.estado === 'semplano') c.estado = 'naoclass'; } });
+
   var posicoes = [], alertas = [];
   slots.forEach(function (sl) {
     var cs = out.filter(function (c) { return noSlot(c, sl); });
@@ -1648,11 +1718,14 @@ function plhEsqueleto_(l, obj, comps, cidr) {
               esperado: esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '' };
     if (!cs.length) {
       p.vazio = true;
-      if (!(mat === 'flexivel' && sl.pos === 'leito')) alertas.push(p.rotulo + ': nenhum componente ' + ((cidr || []).length ? 'no CIDR nem no planejamento' : 'com planejamento') + ' (esperado ' + p.esperado + ')');
+      var semLadoMesmaPos = out.some(function (c) { return c.pos === sl.pos && !c.lado; });
+      if (!(mat === 'flexivel' && sl.pos === 'leito')) alertas.push(p.rotulo + ': ' + (semLadoMesmaPos ? 'há componente desta posição sem lado identificado'
+        : 'nenhum componente ' + ((cidr || []).length ? 'identificado' : 'com planejamento')) + ' (esperado ' + p.esperado + ')');
     }
     cs.forEach(function (c) {
       if (c.estado === 'falta') alertas.push(p.rotulo + ' (' + c.comp + '): sem ' + c.esperado);
-      if (c.estado === 'semplano') alertas.push(p.rotulo + ' (' + c.comp + (c.ext ? ', ' + c.ext + ' m' : '') + '): sem planejamento, esperado ' + c.esperado);
+      if (c.estado === 'semplano') alertas.push(p.rotulo + ' (' + c.comp + (c.ext && c.comp.indexOf(' m') < 0 ? ', ' + c.ext + ' m' : '') + '): ' +
+        (c.provavel ? 'componente do CIDR sem planejamento, provavelmente esta posição' : 'sem planejamento') + ', esperado ' + c.esperado);
     });
     if (cs.filter(function (c) { return !c.semPlano; }).length > 1 && sl.pos !== 'leito') alertas.push(p.rotulo + ': ' + cs.length + ' componentes na mesma posição');
     posicoes.push(p);

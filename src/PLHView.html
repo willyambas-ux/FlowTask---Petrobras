@@ -1180,8 +1180,9 @@ function plhMxAjustarEsq() {
 window.addEventListener('resize', function () { if (currentView === 'plhMatriz') plhMxAjustarEsq(); });
 
 function plhMxCompCard(c) {
-  var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : c.estado === 'semplano' ? 'semplano' : c.estado === 'foraanp' ? 'foraanp' : '';
-  var tags = (c.ladoDeduzido ? '<span class="plh-esq-tag" title="Lado deduzido: era a única posição vazia">lado deduzido</span>' : '') +
+  var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : c.estado === 'semplano' ? 'semplano' : c.estado === 'foraanp' ? 'foraanp' : c.estado === 'naoclass' ? 'foraanp' : '';
+  var tags = (c.provavel ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O CIDR não informa o tipo: posição deduzida pela extensão">posição provável</span>' : '') +
+    (c.ladoDeduzido && !c.provavel ? '<span class="plh-esq-tag" title="Lado deduzido: era a única posição vazia">lado deduzido</span>' : '') +
     (c.ladoManual || c.posManual ? '<span class="plh-esq-tag" style="background:#e6faf6;color:#00a085" title="Corrigido na aba PLH_Componentes">corrigido</span>' : '') +
     (c.ladoDuvida ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O ICPI aponta mais de uma UEP">ICPI: ' + plhE(c.ladoDuvida) + '</span>' : '');
   var procs = c.itens.map(function (i) {
@@ -1195,6 +1196,7 @@ function plhMxCompCard(c) {
     (procs ? '<div class="p">' + procs + '</div>' : '') +
     (c.estado === 'semplano' ? '<div class="sub" style="color:#b3261e">sem planejamento' + (c.esperado ? ' · esperado ' + plhE(c.esperado) : '') + '</div>' : '') +
     (c.estado === 'foraanp' ? '<div class="m">fora do escopo ANP · sem planejamento</div>' : '') +
+    (c.estado === 'naoclass' ? '<div class="m">sem planejamento · tipo não informado no CIDR (ex.: trecho na plataforma)</div>' : '') +
     (c.subst ? '<div class="sub"><i class="fas fa-right-left"></i> ' + plhE(c.subst) + '</div>' : '') +
     (c.estado === 'falta' ? '<div class="sub" style="color:#b3261e">sem ' + plhE(c.esperado) + '</div>' : '') +
     (c.motivo ? '<div class="mot">' + plhE(c.motivo) + '</div>' : '') + '</div>';
