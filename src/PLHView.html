@@ -148,7 +148,7 @@
 @media(max-width:768px){.plh-fx-sit{min-width:150px}.plh-fx-n{min-width:150px}}
 @media(max-width:768px){.plh-charts{grid-template-columns:1fr}.plh-ficha-head input,.plh-ficha-head select{min-width:0;width:100%}}
 /* ---- Matriz de planejamento ---- */
-.plh-mx-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.plh-mx-kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .plh-per-acima{color:#c26a00 !important}
 .plh-per-abaixo{color:#1976d2 !important}
 .plh-mx-kpi{background:#fff;border:1px solid #edf0f3;border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s}
@@ -202,7 +202,7 @@
 .plh-esq-pos.foco .plh-esq-c{animation:plhFoco 1.6s ease}
 @keyframes plhFoco{0%,40%{box-shadow:0 0 0 3px #1976d2}100%{box-shadow:none}}
 .plh-esq-fila{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding-bottom:4px}
-.plh-esq-pos{flex:1 1 0;min-width:170px;max-width:260px;position:relative;padding:0 8px}
+.plh-esq-pos{flex:1 1 0;min-width:190px;max-width:300px;position:relative;padding:0 8px}
 .plh-esq-pos:not(:last-child)::after{content:'';position:absolute;right:-6px;top:22px;width:12px;height:2px;background:#c9d2dc}
 .plh-esq-pos .cab{font-size:10.5px;font-weight:700;color:#5f6b7c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;white-space:nowrap}
 .plh-esq-pos .cab .esp{font-weight:500;text-transform:none;letter-spacing:0;color:#9aa0ac}
@@ -218,7 +218,10 @@
 .plh-esq-c .n{font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plh-esq-c .m{color:#7b8794;font-size:10.5px;margin-top:1px}
 .plh-esq-c .p{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
-.plh-esq-c .p span{background:#eef1f4;border-radius:6px;padding:2px 6px;font-size:10.5px;font-weight:600;color:#3d4757}
+.plh-esq-c .p span{font-weight:600}
+.plh-esq-c .pp{background:#f3f5f8;border-radius:6px;padding:5px 7px;font-size:10.5px;color:#3d4757;line-height:1.45;width:100%}
+.plh-esq-c .pp span{font-weight:600}
+.plh-esq-c .pp .plh-muted{font-weight:400}
 .plh-esq-c .sub{color:#8e24aa;font-weight:600;font-size:10.5px;margin-top:4px}
 .plh-esq-c .mot{color:#5f6b7c;font-style:italic;font-size:10.5px;margin-top:3px}
 .plh-esq-vazio{border:2px dashed #f3b8b3;border-radius:8px;padding:10px;color:#b3261e;font-size:11px;text-align:center;background:#fff}
@@ -1058,6 +1061,7 @@ var PLH_MX_KPIS = [
   { k: 'posicao', t: 'Posição do duto vazia ou componente sem lado', i: 'fa-diagram-next', c: '#b3261e' },
   { k: 'foraPadrao', t: 'Periodicidade maior que a referência', i: 'fa-arrow-up', c: '#c26a00' },
   { k: 'abaixoRef', t: 'Periodicidade menor que a referência', i: 'fa-arrow-down', c: '#1976d2' },
+  { k: 'vencidaRef', t: 'Vencida pela referência (última + norma)', i: 'fa-calendar-xmark', c: '#b3261e' },
   { k: 'divergente', t: 'Periodicidades diferentes no mesmo duto', i: 'fa-not-equal', c: '#8e24aa' },
   { k: 'valeProximo', t: '"Vale para: Próximo" (só a próxima)', i: 'fa-1', c: '#1976d2' }
 ];
@@ -1068,11 +1072,19 @@ function plhMxLimpar() {
   plhMx.filtro = null; plhRenderMatriz();
 }
 function plhMxFiltro(k) { plhMx.filtro = plhMx.filtro === k ? null : k; plhRenderMatriz(); }
-function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.posicao || f.foraPadrao || f.abaixoRef || f.divergente || f.valeProximo; }
+function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.posicao || f.foraPadrao || f.abaixoRef || f.vencidaRef || f.divergente || f.valeProximo; }
 /** "72 Meses" → "72 meses" · "3160 Dias" → "3160 dias" */
 function plhMxPerTxt(txt) {
   var t = String(txt || '').toLowerCase(), n = (t.match(/[\d.,]+/) || [''])[0];
   return n ? n + (/dia/.test(t) ? ' dias' : /ano/.test(t) ? ' anos' : ' meses') : String(txt || '');
+}
+/** 2608 dias → "7 anos e 1 mês" */
+function plhDuracao(dias) {
+  var m = Math.round(Math.abs(dias) / 30.4375), a = Math.floor(m / 12), r = m % 12;
+  var t = [];
+  if (a) t.push(a + (a === 1 ? ' ano' : ' anos'));
+  if (r) t.push(r + (r === 1 ? ' mês' : ' meses'));
+  return t.length ? t.join(' e ') : 'menos de 1 mês';
 }
 /** data da próxima inspeção colorida: vermelha vencida, laranja até 12 meses */
 function plhMxData(iso, dias) {
@@ -1167,8 +1179,9 @@ function plhRenderMatriz() {
       var linhasP = {}, ordemP = [];
       x.itens.slice().sort(function (a, b) { return (a.prox || '9') < (b.prox || '9') ? -1 : 1; }).forEach(function (i) {
         var cmp = i.foraPadrao ? 'acima' : i.abaixoRef ? 'abaixo' : '';
-        var k = plhMxPerTxt(i.per) + '|' + (i.prox || '') + '|' + cmp;
-        if (!linhasP[k]) { linhasP[k] = { per: plhMxPerTxt(i.per), prox: i.prox, dias: i.dias, n: 0, cmp: cmp, ref: i.padrao, fonte: i.padraoFonte }; ordemP.push(k); }
+        var k = plhMxPerTxt(i.per) + '|' + (i.prox || '') + '|' + cmp + '|' + (i.ultReal || '') + '|' + (i.vencidaRef ? 1 : 0);
+        if (!linhasP[k]) { linhasP[k] = { per: plhMxPerTxt(i.per), prox: i.prox, dias: i.dias, n: 0, cmp: cmp, ref: i.padrao, fonte: i.padraoFonte,
+          ult: i.ultReal, ultFonte: i.ultFonte, vencidaRef: i.vencidaRef, venceRef: i.venceRef }; ordemP.push(k); }
         linhasP[k].n++;
       });
       var corpoP = ordemP.map(function (k) {
@@ -1176,7 +1189,9 @@ function plhRenderMatriz() {
         var tip = q.cmp ? ' title="' + plhE((q.cmp === 'acima' ? 'Maior' : 'Menor') + ' que a referência de ' + q.ref + ' meses (' + q.fonte + ')') + '"' : '';
         return '<div class="pl"><span class="per' + (q.cmp ? ' plh-per-' + q.cmp : '') + '"' + tip + '>' + plhE(q.per) +
           (q.cmp === 'acima' ? ' <i class="fas fa-arrow-up" style="font-size:9px"></i>' : q.cmp === 'abaixo' ? ' <i class="fas fa-arrow-down" style="font-size:9px"></i>' : '') + '</span>' + (q.n > 1 ? ' <span class="plh-muted" style="font-size:10px">(' + q.n + ')</span>' : '') +
-          (q.prox ? '<div class="dt">próxima ' + plhMxData(q.prox, q.dias) + '</div>' : '') + '</div>';
+          (q.prox ? '<div class="dt">próxima ' + plhMxData(q.prox, q.dias) + '</div>' : '') +
+          '<div class="dt">' + (q.ult ? 'última ' + plhE(plhDataBR(q.ult)) + (q.ultFonte === 'ISUB' ? ' (ISUB)' : '') : 'sem última inspeção') + '</div>' +
+          (q.vencidaRef ? '<div class="dt plh-dt-venc" title="Última inspeção + periodicidade de referência = ' + plhE(plhDataBR(q.venceRef)) + '">vencida pela referência</div>' : '') + '</div>';
       }).join('');
       return '<td class="c"' + onclick + ' title="' + plhE(dica2) + '">' + corpoP +
         (flags ? '<div class="fl">' + flags + '</div>' : '') + '</td>';
@@ -1230,11 +1245,29 @@ function plhMxCompCard(c) {
 
     (c.ladoDuvida ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O ICPI aponta mais de uma UEP">ICPI: ' + plhE(c.ladoDuvida) + '</span>' : '');
   var procs = c.itens.map(function (i) {
-    return '<span title="' + plhE(i.proc + ' · ' + i.per + ' · última ' + plhDataBR(i.ult) + ' · próxima ' + plhDataBR(i.prox) + (i.vale ? ' · vale para ' + i.vale : '')) + '">' +
-      plhE(i.proc) + ' · ' + plhE(plhMxPerTxt(i.per)) + (i.prox ? ' · próxima ' + plhMxData(i.prox, i.dias) : '') +
-      (i.foraPadrao && i.padrao ? '<br><span style="color:#c26a00">acima da referência: ' + plhE(i.padrao) + ' meses (' + plhE(i.padraoFonte) + ')</span>' : '') +
-      (i.abaixoRef && i.padrao ? '<br><span style="color:#1976d2">abaixo da referência: ' + plhE(i.padrao) + ' meses (' + plhE(i.padraoFonte) + ')</span>' : '') +
-      (/pr[oó]xim/i.test(i.vale || '') ? ' <span class="plh-sopx">só a próxima</span>' : '') + '</span>';
+    var cmp = i.foraPadrao ? 'acima' : i.abaixoRef ? 'abaixo' : '';
+    var linhas = [];
+    linhas.push('<b>' + plhE(i.proc) + '</b> · <span class="' + (cmp ? 'plh-per-' + cmp : '') + '">' + plhE(plhMxPerTxt(i.per)) +
+      (cmp === 'acima' ? ' ↑' : cmp === 'abaixo' ? ' ↓' : '') + '</span>' +
+      (/pr[oó]xim/i.test(i.vale || '') ? ' <span class="plh-sopx">só a próxima</span>' : ''));
+    linhas.push('última ' + (i.ultReal ? plhE(plhDataBR(i.ultReal)) + (i.ultFonte === 'ISUB' ? ' <span class="plh-muted">(ISUB; vazia no GIDES)</span>' : '') : '<span class="plh-muted">sem registro</span>') +
+      (i.prox ? ' · próxima ' + plhMxData(i.prox, i.dias) : ''));
+    if (i.padrao) {
+      var ref = 'referência ' + plhE(i.padrao) + ' meses (' + plhE(i.padraoFonte) + ')';
+      if (i.venceRef) {
+        var pos = i.postergDias;
+        ref += ': venceria em <span class="' + (i.vencidaRef ? 'plh-dt-venc' : '') + '">' + plhE(plhDataBR(i.venceRef)) + '</span>' +
+          (pos !== null && pos > 15 ? ' · <span class="' + (i.vencidaRef ? 'plh-dt-venc' : 'plh-per-acima') + '">postergada ' + plhE(plhDuracao(pos)) + '</span>' : '');
+      }
+      linhas.push(ref);
+    }
+    if (i.execs && i.execs.length) {
+      linhas.push('execuções: ' + i.execs.map(function (x) {
+        return plhE(plhDataBR(x.data)) + (x.intervalo !== null ? ' <span class="' + (x.acima ? 'plh-per-acima' : 'plh-muted') + '">(' +
+          plhE(String(Math.round(x.intervalo)).replace('.', ',')) + ' meses)</span>' : '');
+      }).join(' → '));
+    }
+    return '<div class="pp">' + linhas.map(function (t) { return '<div>' + t + '</div>'; }).join('') + '</div>';
   }).join('');
   var num = function (v) { return String(Math.round(v * 1000) / 1000).replace('.', ','); };
   var ext = c.ext === null || c.ext === undefined ? '' : (c.ext >= 1000 ? (c.ext / 1000).toFixed(1).replace('.', ',') + ' quilômetros' : num(c.ext) + ' metros');
@@ -1283,7 +1316,8 @@ function plhMxSchTexto(p, ancora, x, y) {
       var itens = c.itens.slice().sort(function (a, b) { return (a.prox || '9') < (b.prox || '9') ? -1 : 1; });
       l2 = itens.map(function (i) {
         var corD = i.dias === null || i.dias === undefined ? '#5f6b7c' : i.dias < 0 ? '#b3261e' : i.dias <= 365 ? '#c26a00' : '#5f6b7c';
-        return '<tspan fill="#3d4757" font-weight="600">' + esc(i.proc) + '</tspan><tspan fill="#7b8794"> próxima </tspan><tspan fill="' + corD + '" font-weight="' + (corD === '#5f6b7c' ? '400' : '700') + '">' + esc(plhDataBR(i.prox)) + '</tspan>';
+        return '<tspan fill="#3d4757" font-weight="600">' + esc(i.proc) + '</tspan><tspan fill="#7b8794"> próxima </tspan><tspan fill="' + corD + '" font-weight="' + (corD === '#5f6b7c' ? '400' : '700') + '">' + esc(plhDataBR(i.prox)) + '</tspan>' +
+          (i.vencidaRef ? '<tspan fill="#b3261e" font-weight="700"> · vencida pela referência</tspan>' : '');
       }).join('<tspan fill="#9aa0ac">  ·  </tspan>');
       if (c.subst) l3 = '<tspan fill="#8e24aa" font-weight="600">⇄ ' + esc(c.subst) + '</tspan>';
     }

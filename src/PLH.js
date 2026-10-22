@@ -654,7 +654,7 @@ function getPlhData() {
   if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
   var compCIDR = plhLerCompCIDR_(ss, objetos, plan);
-  var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows, compCIDR);
+  var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows, compCIDR, src.Historico, hoje);
 
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
@@ -1369,9 +1369,18 @@ function plhPeriodo_(txt) {
   return { meses: n, dias: null, txt: plhTxt_(txt) };
 }
 
-function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
+function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR, historico, hoje) {
   var regras = plhLerRegras_(ss);
   var refPer = plhLerPeriodicidade_(ss);
+  hoje = hoje || plhHoje_();
+  // execuções do ISUB por componente + procedimento (para a última inspeção e os intervalos reais)
+  var execPor = {};
+  (historico || []).forEach(function (r) {
+    var id = plhTxt_(r.Componente_BDIEP), proc = plhTxt_(r.Procedimento).toUpperCase(), ex = plhData_(r.Dt_Execucao);
+    if (!id || !proc || !ex || ex > hoje) return;
+    var k = id + '|' + proc, l = execPor[k] = execPor[k] || [], iso = plhIso_(ex);
+    if (l.indexOf(iso) < 0) l.push(iso);
+  });
   var objPorId = {};
   objetos.forEach(function (o) { objPorId[o.id] = o; });
   var icpiPor = {};
@@ -1432,6 +1441,7 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
     // (inspeção mais espaçada que a norma); menor é mais conservador e só fica registrado. Sem referência, não compara.
     item.foraPadrao = !!(ref && per.meses !== null && per.meses > ref.meses + 0.5);
     item.abaixoRef = !!(ref && per.meses !== null && per.meses < ref.meses - 0.5);
+    plhHistoricoItem_(item, execPor[(p.compId || '') + '|' + proc] || [], ref, hoje);
     (l.cel[proc] = l.cel[proc] || { itens: [] }).itens.push(item);
     // flexível: o mesmo componente aparece uma vez por ponta (Local Instalação / Tramo diferentes)
     var chaveC = (p.compId || p.comp) + (p.local ? '|' + p.local : '');
@@ -1486,7 +1496,7 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
   ordem.forEach(function (k) { linhas[k].esq = plhEsqueleto_(linhas[k], objPorId[linhas[k].objId], comps, porDuto[linhas[k].objId] || []); });
   plhGravarComponentes_(comps, ordem.map(function (k) { return linhas[k]; }));
 
-  var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, abaixoRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+  var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, abaixoRef: 0, vencidaRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
   var lista = ordem.map(function (k) {
     var l = linhas[k];
     var cel = {};
@@ -1503,23 +1513,24 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
         divergente: Object.keys(pers).length > 1,
         foraPadrao: it.some(function (i) { return i.foraPadrao; }),
         abaixoRef: it.some(function (i) { return i.abaixoRef; }),
+        vencidaRef: it.some(function (i) { return i.vencidaRef; }),
         emDias: it.some(function (i) { return i.emDias; }),
         valeProximo: it.some(function (i) { return /pr[oó]xim/i.test(i.vale); }),
         semRegra: it.length > 0 && it.every(function (i) { return i.semRegra; }),
         lados: (l.lados || []).filter(function (x) { return x.proc === proc; })[0] || null
       };
     });
-    var flags = { semPlano: l.nPlanos === 0, posicao: l.esq ? l.esq.alertas.length : 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, abaixoRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+    var flags = { semPlano: l.nPlanos === 0, posicao: l.esq ? l.esq.alertas.length : 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, abaixoRef: 0, vencidaRef: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
     Object.keys(cel).forEach(function (p) {
       var c = cel[p];
       if (c.faltam.length) flags.faltando++;
-      ['foraPadrao', 'abaixoRef', 'divergente', 'emDias', 'valeProximo', 'semRegra'].forEach(function (f) { if (c[f]) flags[f]++; });
+      ['foraPadrao', 'abaixoRef', 'vencidaRef', 'divergente', 'emDias', 'valeProximo', 'semRegra'].forEach(function (f) { if (c[f]) flags[f]++; });
       if (c.dias !== null && c.dias < 0) flags.vencidas++;
     });
     resumo.objetos++;
     if (flags.semPlano) resumo.semPlano++;
     if (flags.posicao) resumo.posicao++;
-    ['lados', 'faltando', 'foraPadrao', 'abaixoRef', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
+    ['lados', 'faltando', 'foraPadrao', 'abaixoRef', 'vencidaRef', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
     return { objId: l.objId, objeto: l.objeto, plat: l.plat, situacao: l.situacao, classe: l.classe,
              nPlanos: l.nPlanos, nComps: Object.keys(l.comps).length, cel: cel, flags: flags, lados: l.lados || [], esq: l.esq };
   });
@@ -1690,7 +1701,8 @@ function plhEsqueleto_(l, obj, comps, cidr) {
       anp: dc.anp || c.anp || '', sitComp: dc.situacao || c.situacao || '',
       esperado: esp ? esp.base.join(' + ') : '',
       itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, meses: i.meses, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej,
-        padrao: i.padrao, padraoFonte: i.padraoFonte, foraPadrao: i.foraPadrao, abaixoRef: !!i.abaixoRef }; })
+        padrao: i.padrao, padraoFonte: i.padraoFonte, foraPadrao: i.foraPadrao, abaixoRef: !!i.abaixoRef,
+        ultReal: i.ultReal, ultFonte: i.ultFonte, venceRef: i.venceRef, postergDias: i.postergDias, vencidaRef: i.vencidaRef, execs: i.execs }; })
     });
   });
 
@@ -1863,4 +1875,30 @@ function plhRefPeriodicidade_(refPer, proc, obj) {
   var f = obj ? plhFluidoChave_(obj.fluido || obj.funcao) : 'todos';
   if (f === 'todos' || f === '') return refPer.por[proc + '|todos'] || null;
   return refPer.por[proc + '|' + f] || refPer.por[proc + '|todos'] || null;
+}
+
+
+/** Última inspeção (GIDES; vazia → última execução do ISUB), vencimento pela referência
+ *  (última + periodicidade da PLH_Periodicidade), postergação (próxima atual − vencimento pela referência)
+ *  e as execuções reais do ISUB com o intervalo entre elas. */
+function plhHistoricoItem_(item, execs, ref, hoje) {
+  var lista = execs.slice();
+  if (item.ult && lista.indexOf(item.ult) < 0) lista.push(item.ult);
+  lista.sort();
+  var ultIsub = execs.slice().sort().pop() || '';
+  item.ultReal = item.ult || ultIsub || '';
+  item.ultFonte = item.ult ? 'GIDES' : ultIsub ? 'ISUB' : '';
+  var mesesEntre = function (a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000 / 30.4375 * 10) / 10; };
+  item.execs = lista.map(function (d, i) {
+    var iv = i ? mesesEntre(lista[i - 1], d) : null;
+    return { data: d, intervalo: iv, acima: !!(ref && iv !== null && iv > ref.meses + 0.5) };
+  });
+  item.venceRef = ''; item.postergDias = null; item.vencidaRef = false;
+  if (ref && item.ultReal) {
+    var v = new Date(item.ultReal + 'T00:00:00');
+    v.setMonth(v.getMonth() + Math.round(ref.meses));
+    item.venceRef = plhIso_(v);
+    if (item.prox) item.postergDias = Math.round((new Date(item.prox + 'T00:00:00') - v) / 86400000);
+    item.vencidaRef = v < hoje;
+  }
 }
