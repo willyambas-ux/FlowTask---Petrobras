@@ -355,7 +355,8 @@ function getPlhData() {
       comp: plhTxt_(r.Nome_Componente), compId: plhTxt_(r.Componente_BDIEP), proc: plhTxt_(r.Procedimento),
       per: plhTxt_(r.Periodicidade), planej: plhTxt_(r.Planejamento), situacao: plhTxt_(r.Situacao_Duto),
       ult: plhIso_(ult), prox: plhIso_(prox), dias: dias, status: plhStatusPrazo_(dias, PLH_JANELA_PLANEJ),
-      semAnterior: !ult, descCritica: plhNorm_(r.Tem_Descont_Critica) === 'sim'
+      semAnterior: !ult, descCritica: plhNorm_(r.Tem_Descont_Critica) === 'sim',
+      tipoComp: plhTxt_(r.Tipo_Componente), vale: plhTxt_(r.Vale_Para)
     });
   });
 
@@ -511,6 +512,7 @@ function getPlhData() {
   var plancorRes = plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje);
   if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
+  var matriz = plhMontarMatriz_(ss, plan, objetos);
 
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
@@ -615,7 +617,7 @@ function getPlhData() {
     janela: PLH_JANELA_PLANEJ,
     fontes: fontes, plataformas: Object.keys(plats).sort(),
     objetos: objetos, plan: plan, rts: rts, patec: patec, jaquetas: jaquetas,
-    pend: pend, valid: valid, fluxo: fluxo, icpi: icpiPainel, plancor: plancorRes,
+    pend: pend, valid: valid, fluxo: fluxo, icpi: icpiPainel, plancor: plancorRes, matriz: matriz,
     etapasFluxo: PLH_ETAPAS
   };
 }
@@ -1147,4 +1149,212 @@ function salvarIcpiAcao(a) {
   } finally {
     lock.releaseLock();
   }
+}
+
+
+/* ============================================================================
+ *  MATRIZ DE PLANEJAMENTO: objeto × procedimento, com a periodicidade cadastrada no GIDES
+ *  comparada com a regra de referência (aba PLH_Regras, editável pelo usuário).
+ *  Limite: o export de planejamento só traz componentes que têm algum planejamento;
+ *  componente sem nenhum plano não aparece (só o duto inteiro sem plano é detectado, via CIDR).
+ * ==========================================================================*/
+var PLH_ABA_REGRAS = 'PLH_Regras';
+var PLH_REGRAS_COLS = ['Tipo componente', 'Procedimento', 'Periodicidade padrão (meses)', 'Obrigatório', 'Aceita no lugar', 'Observação'];
+// Ponto de partida: o mais comum no cadastro atual. O usuário corrige na aba.
+var PLH_REGRAS_PADRAO = [
+  ['Riser Rígido', 'PIDR-4', 36, 'Sim', '', 'Emersa (inspetor)'],
+  ['Riser Rígido', 'PIDR-3', 72, 'Sim', 'PIDR-8', 'Riser submerso; PIDR-8 pode substituir'],
+  ['Riser Rígido', 'PIDR-8', 72, 'Não', '', 'Diferenciada'],
+  ['Trecho Rígido', 'PIDR-1', '', 'Sim', 'PIDR-8', 'Leito marinho; hoje todos os trechos estão com PIDR-8'],
+  ['Trecho Rígido', 'PIDR-8', 72, 'Não', '', 'Diferenciada'],
+  ['Riser Flexível', 'PIDF-4', 48, 'Sim', '', 'Emersa (inspetor)'],
+  ['Riser Flexível', 'PIDF-3', 72, 'Sim', 'PIDF-1', ''],
+  ['Riser Flexível', 'PIDF-1', 120, 'Não', '', ''],
+  ['Flow Flexível', 'PIDF-1', 120, 'Sim', '', ''],
+  ['SISTEMA ANM', 'PI-ANM', 36, 'Sim', '', ''],
+  ['SISTEMA ANM', 'PI-ANM-PE', 36, 'Sim', '', ''],
+  ['PLEM', 'PI-PLEM', 72, 'Sim', '', ''],
+  ['PLEM', 'PI-PLEM-PE', 72, 'Sim', '', ''],
+  ['J-TUBE', 'PIDR-8', 72, 'Não', '', '']
+];
+var PLH_MATRIZ_GRUPOS = [
+  { grupo: 'Rígido', procs: ['PIDR-0', 'PIDR-1', 'PIDR-3', 'PIDR-4', 'PIDR-8'] },
+  { grupo: 'Flexível', procs: ['PIDF-1', 'PIDF-3', 'PIDF-4'] },
+  { grupo: 'Equipamentos', procs: ['PI-ANM', 'PI-ANM-PE', 'PI-PLEM', 'PI-PLEM-PE'] }
+];
+
+function plhLerRegras_(ss) {
+  var sh = ss.getSheetByName(PLH_ABA_REGRAS), criada = false;
+  if (!sh) {
+    try {
+      sh = ss.insertSheet(PLH_ABA_REGRAS);
+      sh.getRange(1, 1, 1, PLH_REGRAS_COLS.length).setValues([PLH_REGRAS_COLS])
+        .setFontWeight('bold').setBackground('#2c3e50').setFontColor('#ffffff');
+      sh.getRange(2, 1, PLH_REGRAS_PADRAO.length, PLH_REGRAS_COLS.length).setValues(PLH_REGRAS_PADRAO);
+      sh.setFrozenRows(1);
+      sh.setTabColor('#00a085');
+      criada = true;
+    } catch (e) {
+      return { gid: null, criada: false, lista: PLH_REGRAS_PADRAO.map(plhRegraDe_), erro: 'Não foi possível criar a aba PLH_Regras: ' + e.message };
+    }
+  }
+  var vals = sh.getDataRange().getValues();
+  var cab = (vals[0] || []).map(plhNorm_);
+  var ix = function (n) { return cab.indexOf(plhNorm_(n)); };
+  var c = PLH_REGRAS_COLS.map(ix);
+  var lista = [];
+  for (var i = 1; i < vals.length; i++) {
+    var r = vals[i];
+    var linha = c.map(function (k) { return k < 0 ? '' : r[k]; });
+    if (!plhTxt_(linha[0]) || !plhTxt_(linha[1])) continue;
+    lista.push(plhRegraDe_(linha));
+  }
+  return { gid: sh.getSheetId(), criada: criada, lista: lista };
+}
+function plhRegraDe_(l) {
+  return { tipo: plhTxt_(l[0]), proc: plhTxt_(l[1]).toUpperCase(), padrao: plhNum_(l[2]),
+           obrig: /^s/i.test(plhTxt_(l[3])), alt: plhTxt_(l[4]).toUpperCase().split(/[\s,;\/]+/).filter(String),
+           obs: plhTxt_(l[5]) };
+}
+
+/** "72 Meses" → {meses:72}; "3160 Dias" → {meses:103.8, dias:3160} */
+function plhPeriodo_(txt) {
+  var t = plhNorm_(txt), n = plhNum_((t.match(/[\d.,]+/) || [''])[0]);
+  if (n === null) return { meses: null, dias: null, txt: plhTxt_(txt) };
+  if (/dia/.test(t)) return { meses: Math.round(n / 30.4375 * 10) / 10, dias: n, txt: plhTxt_(txt) };
+  if (/ano/.test(t)) return { meses: n * 12, dias: null, txt: plhTxt_(txt) };
+  return { meses: n, dias: null, txt: plhTxt_(txt) };
+}
+
+function plhMontarMatriz_(ss, plan, objetos) {
+  var regras = plhLerRegras_(ss);
+  var regraPor = {}, exigidas = {};
+  regras.lista.forEach(function (g) {
+    regraPor[plhNorm_(g.tipo) + '|' + g.proc] = g;
+    if (g.obrig) (exigidas[plhNorm_(g.tipo)] = exigidas[plhNorm_(g.tipo)] || []).push(g);
+  });
+
+  var linhas = {}, ordem = [];
+  var linhaDe = function (nome, id, plat, situacao, classe) {
+    var k = plhNorm_(nome);
+    if (!linhas[k]) {
+      linhas[k] = { objId: id || '', objeto: nome, plat: plat || '', situacao: situacao || '', classe: classe || '',
+                    cel: {}, comps: {}, nPlanos: 0 };
+      ordem.push(k);
+    }
+    var l = linhas[k];
+    if (!l.objId && id) l.objId = id;
+    if (!l.plat && plat) l.plat = plat;
+    if (!l.situacao && situacao) l.situacao = situacao;
+    return l;
+  };
+  objetos.forEach(function (o) {
+    if (o.cadastro !== 'CIDR') return; // ANM/PLEM fora do CIDR entram pelo próprio planejamento do duto
+    linhaDe(o.nome, o.id, o.plat, o.situacao, o.classe);
+  });
+
+  var procsVistos = {};
+  plan.forEach(function (p) {
+    if (!p.objeto || !p.proc) return;
+    var l = linhaDe(p.objeto, p.objId, p.plat, p.situacao, '');
+    l.situacao = p.situacao || l.situacao; // situação do GIDES (mais atual que o CIDR)
+    l.nPlanos++;
+    var proc = p.proc.toUpperCase();
+    procsVistos[proc] = true;
+    var per = plhPeriodo_(p.per);
+    var regra = regraPor[plhNorm_(p.tipoComp) + '|' + proc];
+    var item = {
+      comp: p.comp, compId: p.compId, tipo: p.tipoComp, planej: p.planej, per: per.txt, meses: per.meses,
+      emDias: per.dias !== null, vale: p.vale, ult: p.ult, prox: p.prox, dias: p.dias, status: p.status,
+      padrao: regra ? regra.padrao : null, semRegra: !regra
+    };
+    item.foraPadrao = !!(regra && regra.padrao && per.meses !== null && Math.abs(per.meses - regra.padrao) > 0.5);
+    (l.cel[proc] = l.cel[proc] || { itens: [] }).itens.push(item);
+    var cc = l.comps[p.compId || p.comp] = l.comps[p.compId || p.comp] || { comp: p.comp, tipo: p.tipoComp, procs: {} };
+    cc.procs[proc] = true;
+  });
+
+  // Procedimento exigido que falta no duto: a regra vale para o duto (não para cada componente),
+  // porque o GIDES divide o riser em componente emerso (PIDR-4) e submerso (PIDR-3/PIDR-8).
+  ordem.forEach(function (k) {
+    var l = linhas[k];
+    var tipos = {}, procsObj = {};
+    Object.keys(l.comps).forEach(function (ck) {
+      var c = l.comps[ck];
+      tipos[plhNorm_(c.tipo)] = c.tipo;
+      Object.keys(c.procs).forEach(function (p) { procsObj[p] = true; });
+    });
+    Object.keys(tipos).forEach(function (t) {
+      (exigidas[t] || []).forEach(function (g) {
+        if (procsObj[g.proc] || g.alt.some(function (a) { return procsObj[a]; })) return;
+        procsVistos[g.proc] = true;
+        var cel = l.cel[g.proc] = l.cel[g.proc] || { itens: [] };
+        (cel.faltam = cel.faltam || []).push({ tipo: tipos[t], alt: g.alt });
+      });
+    });
+    // Lados do riser: componentes emersos (PIDR-4/PIDF-4) × submersos (PIDR-3/PIDR-8/PIDF-3/PIDF-1)
+    ['Rígido', 'Flexível'].forEach(function (mat) {
+      var em = mat === 'Rígido' ? ['PIDR-4'] : ['PIDF-4'];
+      var sub = mat === 'Rígido' ? ['PIDR-3', 'PIDR-8'] : ['PIDF-3', 'PIDF-1'];
+      var nEm = 0, nSub = 0;
+      Object.keys(l.comps).forEach(function (ck) {
+        var c = l.comps[ck];
+        if (plhNorm_(c.tipo) !== plhNorm_('Riser ' + mat)) return;
+        if (em.some(function (p) { return c.procs[p]; })) nEm++;
+        if (sub.some(function (p) { return c.procs[p]; })) nSub++;
+      });
+      if (nEm && nSub && nEm !== nSub) {
+        var alvo = nEm < nSub ? em[0] : sub[0];
+        if (!l.cel[alvo] && nEm < nSub) l.cel[alvo] = { itens: [] };
+        (l.lados = l.lados || []).push({ mat: mat, em: nEm, sub: nSub, proc: nEm < nSub ? em[0] : null });
+      }
+    });
+  });
+
+  var resumo = { objetos: 0, semPlano: 0, lados: 0, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+  var lista = ordem.map(function (k) {
+    var l = linhas[k];
+    var cel = {};
+    Object.keys(l.cel).forEach(function (proc) {
+      var c = l.cel[proc], it = c.itens;
+      var pers = {};
+      it.forEach(function (i) { pers[i.meses === null ? i.per : i.meses] = true; });
+      var prox = it.map(function (i) { return i.prox; }).filter(String).sort()[0] || '';
+      var diasMin = it.reduce(function (m, i) { return i.dias === null ? m : (m === null || i.dias < m ? i.dias : m); }, null);
+      cel[proc] = {
+        n: it.length, itens: it, faltam: c.faltam || [],
+        per: it.length ? Object.keys(pers).map(function (x) { return isNaN(x) ? x : Number(x); }) : [],
+        prox: prox, dias: diasMin,
+        divergente: Object.keys(pers).length > 1,
+        foraPadrao: it.some(function (i) { return i.foraPadrao; }),
+        emDias: it.some(function (i) { return i.emDias; }),
+        valeProximo: it.some(function (i) { return /pr[oó]xim/i.test(i.vale); }),
+        semRegra: it.length > 0 && it.every(function (i) { return i.semRegra; }),
+        lados: (l.lados || []).filter(function (x) { return x.proc === proc; })[0] || null
+      };
+    });
+    var flags = { semPlano: l.nPlanos === 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+    Object.keys(cel).forEach(function (p) {
+      var c = cel[p];
+      if (c.faltam.length) flags.faltando++;
+      ['foraPadrao', 'divergente', 'emDias', 'valeProximo', 'semRegra'].forEach(function (f) { if (c[f]) flags[f]++; });
+      if (c.dias !== null && c.dias < 0) flags.vencidas++;
+    });
+    resumo.objetos++;
+    if (flags.semPlano) resumo.semPlano++;
+    ['lados', 'faltando', 'foraPadrao', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
+    return { objId: l.objId, objeto: l.objeto, plat: l.plat, situacao: l.situacao, classe: l.classe,
+             nPlanos: l.nPlanos, nComps: Object.keys(l.comps).length, cel: cel, flags: flags, lados: l.lados || [] };
+  });
+  lista.sort(function (a, b) { return a.plat === b.plat ? (a.objeto < b.objeto ? -1 : 1) : (a.plat < b.plat ? -1 : 1); });
+
+  var colunas = [];
+  var usados = {};
+  PLH_MATRIZ_GRUPOS.forEach(function (g) {
+    g.procs.forEach(function (p) { if (procsVistos[p]) { colunas.push({ proc: p, grupo: g.grupo }); usados[p] = true; } });
+  });
+  Object.keys(procsVistos).sort().forEach(function (p) { if (!usados[p]) colunas.push({ proc: p, grupo: 'Outros' }); });
+
+  return { colunas: colunas, linhas: lista, resumo: resumo,
+           regras: regras.lista, regrasGid: regras.gid, regrasCriada: regras.criada, regrasErro: regras.erro || '' };
 }

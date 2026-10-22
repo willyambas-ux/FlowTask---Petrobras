@@ -147,6 +147,46 @@
 .plh-legenda i.b{width:11px;height:11px;border-radius:50%;display:inline-block;border:2px solid #d5dae1}
 @media(max-width:768px){.plh-fx-sit{min-width:150px}.plh-fx-n{min-width:150px}}
 @media(max-width:768px){.plh-charts{grid-template-columns:1fr}.plh-ficha-head input,.plh-ficha-head select{min-width:0;width:100%}}
+/* ---- Matriz de planejamento ---- */
+.plh-mx-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.plh-mx-kpi{background:#fff;border:1px solid #edf0f3;border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s}
+.plh-mx-kpi:hover{border-color:#b9d4f5}
+.plh-mx-kpi.ativo{border-color:#1976d2;box-shadow:0 0 0 2px #cfe3fb}
+.plh-mx-kpi .n{font-size:26px;font-weight:700;color:#2c3e50;line-height:1.1}
+.plh-mx-kpi .n.zero{color:#c0c6cf}
+.plh-mx-kpi .t{font-size:12px;color:#5f6b7c;margin-top:3px;line-height:1.3}
+.plh-mx-kpi .i{float:right;font-size:13px}
+.plh-mx-wrap{overflow:auto;max-height:calc(100vh - 330px);border-radius:10px;background:#fff;border:1px solid #edf0f3}
+.plh-mx{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%}
+.plh-mx th,.plh-mx td{border-bottom:1px solid #f0f2f5;border-right:1px solid #f4f5f7;padding:0}
+.plh-mx thead th{position:sticky;background:#f8f9fb;color:#5f6b7c;font-weight:600;z-index:2;text-align:center;font-size:11px;padding:6px 4px;white-space:nowrap}
+.plh-mx thead tr:first-child th{top:0;text-transform:uppercase;letter-spacing:.04em;font-size:10px;color:#7b8794}
+.plh-mx thead tr:nth-child(2) th{top:25px}
+.plh-mx .nome{position:sticky;left:0;background:#fff;z-index:1;min-width:210px;max-width:260px;padding:6px 10px;text-align:left}
+.plh-mx thead .nome{z-index:3;background:#f8f9fb}
+.plh-mx .nome .o{font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-mx .nome .s{font-size:10.5px;color:#9aa0ac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-mx tr.plat td{background:#f3f5f8;font-weight:700;color:#3d4757;font-size:11px;padding:5px 10px;text-align:left}
+.plh-mx td.c{min-width:64px;text-align:center;cursor:pointer;height:38px}
+.plh-mx td.c:hover{outline:2px solid #1976d2;outline-offset:-2px}
+.plh-mx td.vazio{cursor:default;background:#fff}
+.plh-mx td.vazio:hover{outline:none}
+.plh-mx td.st-ok{background:#eaf7ef}
+.plh-mx td.st-12{background:#fff6e0}
+.plh-mx td.st-venc{background:#fde4e2}
+.plh-mx td.st-sem{background:#f5f7fa}
+.plh-mx td.falta{background:repeating-linear-gradient(45deg,#fff,#fff 5px,#fdecea 5px,#fdecea 10px);color:#b3261e;font-weight:700}
+.plh-mx .per{font-weight:600;color:#2c3e50;white-space:nowrap}
+.plh-mx .fl{font-size:9.5px;letter-spacing:.5px;margin-top:1px;white-space:nowrap}
+.plh-mx .fl i{margin:0 1px}
+.plh-mx tr.semplano .nome .o,.plh-mx tr.semplano .nome .o .plh-link{color:#b3261e}
+.plh-mx-leg{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:#7b8794;margin:10px 2px 18px}
+.plh-mx-leg span{display:inline-flex;align-items:center;gap:5px}
+.plh-mx-leg .q{width:14px;height:12px;border-radius:3px;display:inline-block;border:1px solid #e0e4ea}
+.plh-mx-nota{display:flex;gap:10px;align-items:flex-start;background:#f5f9ff;border:1px solid #dbe8f8;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#3d4757;margin-bottom:14px;line-height:1.45}
+.plh-mx-det td,.plh-mx-det th{font-size:12px;padding:6px 8px;border-bottom:1px solid #f0f2f5;text-align:left}
+@media(max-width:1100px){.plh-mx-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.plh-mx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.plh-mx .nome{min-width:150px}}
 </style>
 
 <div id="plhTemplates" style="display:none;">
@@ -206,6 +246,42 @@
           <th>Otimista</th><th>Realista</th><th>Pessimista</th><th>Atualizado</th><th></th></tr></thead>
         <tbody id="plhIcpiBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- MATRIZ DE PLANEJAMENTO -->
+  <div id="plhMatrizView" style="display:none;">
+    <div class="plh-mx-nota" id="plhMxNota"></div>
+    <div class="plh-mx-kpis" id="plhMxKpis"></div>
+    <div class="filters-bar" style="border-radius:10px;border:1px solid #f0f2f5;margin-bottom:12px;">
+      <div class="search-box"><i class="fas fa-magnifying-glass"></i>
+        <input type="text" id="plhMxBusca" placeholder="Buscar duto..." oninput="plhRenderMatriz()"></div>
+      <select class="filter-select" id="plhMxPlat" onchange="plhRenderMatriz()"></select>
+      <select class="filter-select" id="plhMxSit" onchange="plhRenderMatriz()">
+        <option value="ativos">Sem os desativados</option>
+        <option value="todos">Todas as situações</option>
+        <option value="desat">Só desativados / removidos</option>
+      </select>
+      <label class="plh-muted" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="plhMxAlerta" onchange="plhRenderMatriz()"> Só dutos com alerta</label>
+      <button class="btn-clear-filters" onclick="plhMxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
+      <span id="plhMxCount" class="plh-muted" style="margin-left:auto;"></span>
+    </div>
+    <div id="plhMxTabela"></div>
+    <div class="plh-mx-leg">
+      <span><i class="q" style="background:#eaf7ef"></i> Próxima inspeção no prazo</span>
+      <span><i class="q" style="background:#fff6e0"></i> Vence em até 12 meses</span>
+      <span><i class="q" style="background:#fde4e2"></i> Vencida</span>
+      <span><i class="q" style="background:repeating-linear-gradient(45deg,#fff,#fff 3px,#fdecea 3px,#fdecea 6px)"></i> Falta pela regra</span>
+      <span><i class="fas fa-not-equal" style="color:#8e24aa"></i> Periodicidades diferentes</span>
+      <span><i class="fas fa-ruler" style="color:#e67e22"></i> Fora do padrão</span>
+      <span><b style="color:#7b8794">d</b> Cadastrada em dias</span>
+      <span><b style="color:#1976d2">1×</b> Vale só para a próxima</span>
+      <span><i class="fas fa-left-right" style="color:#b3261e"></i> Lados do riser diferentes</span>
+    </div>
+    <div class="plh-section">
+      <div class="dashboard-section-title" style="margin:6px 0 10px"><i class="fas fa-oil-well" style="color:#00a085"></i> Jaquetas: periodicidade por nível</div>
+      <div id="plhMxJaq"></div>
     </div>
   </div>
 
@@ -281,7 +357,8 @@
 <script>
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
-var PLH_VIEWS = ['plhDash', 'plhIcpi', 'plhFluxo', 'plhPend', 'plhFicha'];
+var PLH_VIEWS = ['plhDash', 'plhIcpi', 'plhFluxo', 'plhMatriz', 'plhPend', 'plhFicha'];
+var plhMx = { filtro: null };
 var plhFx = { etapa: null, grupo: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
 var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
@@ -294,13 +371,14 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
       '<a href="#" class="menu-item" data-view="plhDash"><i class="fas fa-water"></i><span class="label">Visão Geral</span></a>' +
       '<a href="#" class="menu-item" data-view="plhIcpi"><i class="fas fa-gauge-high"></i><span class="label">ICPI SSUB</span></a>' +
       '<a href="#" class="menu-item" data-view="plhFluxo"><i class="fas fa-bars-progress"></i><span class="label">Fluxo de inspeção</span></a>' +
+      '<a href="#" class="menu-item" data-view="plhMatriz"><i class="fas fa-table-cells"></i><span class="label">Matriz de planejamento</span></a>' +
       '<a href="#" class="menu-item" data-view="plhPend"><i class="fas fa-list-ol"></i><span class="label">Pendências</span>' +
         '<span class="menu-badge" id="plhBadge" style="background:#E5534B;display:none;">0</span></a>' +
       '<a href="#" class="menu-item" data-view="plhFicha"><i class="fas fa-id-card"></i><span class="label">Fichas</span></a>';
     menu.insertAdjacentHTML('beforeend', html);
   }
   var area = document.querySelector('.content-area');
-  ['plhDashView', 'plhIcpiView', 'plhFluxoView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
+  ['plhDashView', 'plhIcpiView', 'plhFluxoView', 'plhMatrizView', 'plhPendView', 'plhFichaView'].forEach(function (id) {
     var el = document.getElementById(id);
     if (area && el) area.appendChild(el);
   });
@@ -318,6 +396,7 @@ var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
     var t = { plhDash: ['PLH SSUB', 'Integridade de dutos, interligações e jaquetas'],
               plhIcpi: ['PLH SSUB · ICPI SSUB', 'Cumprimento do plano de inspeção: hoje, previsões e projeção até o fim do ano'],
               plhFluxo: ['PLH SSUB · Fluxo de inspeção', 'Demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC'],
+              plhMatriz: ['PLH SSUB · Matriz de planejamento', 'Procedimentos cadastrados e periodicidade de cada duto e jaqueta'],
               plhPend: ['PLH SSUB · Pendências', 'Lista única de trabalho, da mais urgente para a menos'],
               plhFicha: ['PLH SSUB · Fichas', 'Tudo sobre uma plataforma ou um objeto'] }[currentView];
     if (!t) return origTitulo();
@@ -390,7 +469,7 @@ function plhCarregar(forcar, silencioso) {
 function plhMostrarCarregando() {
   PLH_VIEWS.forEach(function (v) {
     if (v !== currentView) return;
-    var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
+    var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[v];
     var el = document.getElementById(alvo);
     var html = '<div class="loading"><div class="spinner"></div><p>Lendo as abas do PLH...</p></div>';
     if (el) el.innerHTML = v === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
@@ -400,7 +479,7 @@ function plhMostrarCarregando() {
 function plhMostrarErro() {
   var html = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>Não foi possível ler os dados</h3><p>' +
     escapeHtml(plh.erro) + '</p></div>';
-  var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
+  var alvo = { plhDash: 'plhStats', plhIcpi: 'plhIcpiKpis', plhFluxo: 'plhFluxoLista', plhMatriz: 'plhMxTabela', plhPend: 'plhPendBody', plhFicha: 'plhFichaBody' }[currentView];
   var el = document.getElementById(alvo);
   if (el) el.innerHTML = currentView === 'plhPend' ? '<tr><td colspan="10">' + html + '</td></tr>' : html;
 }
@@ -417,6 +496,7 @@ function plhRender() {
   if (currentView === 'plhDash') plhRenderDash();
   else if (currentView === 'plhFluxo') plhRenderFluxo();
   else if (currentView === 'plhIcpi') plhRenderIcpi();
+  else if (currentView === 'plhMatriz') plhRenderMatriz();
   else if (currentView === 'plhPend') plhRenderPend();
   else if (currentView === 'plhFicha') plhRenderFicha();
 }
@@ -733,6 +813,172 @@ function plhIcpiCopiar() {
     '<div class="rodape"><button class="btn btn-secondary" onclick="plhIcpiFechar()">Fechar</button></div></div></div>');
   var t = document.getElementById('plhIcpiTxt'); t.focus(); t.select();
 }
+
+/* ---------------- MATRIZ DE PLANEJAMENTO ---------------- */
+var PLH_MX_KPIS = [
+  { k: 'semPlano', t: 'Dutos sem nenhum planejamento', i: 'fa-circle-xmark', c: '#b3261e' },
+  { k: 'faltando', t: 'Procedimento exigido faltando', i: 'fa-square-minus', c: '#b3261e' },
+  { k: 'lados', t: 'Riser: lados emerso × submerso diferentes', i: 'fa-left-right', c: '#b3261e' },
+  { k: 'foraPadrao', t: 'Periodicidade fora do padrão', i: 'fa-ruler', c: '#e67e22' },
+  { k: 'divergente', t: 'Periodicidades diferentes no mesmo duto', i: 'fa-not-equal', c: '#8e24aa' },
+  { k: 'valeProximo', t: '"Vale para: Próximo" (só a próxima)', i: 'fa-1', c: '#1976d2' }
+];
+function plhMxDesat(sit) { return /desativ|removid/i.test(sit || ''); }
+function plhMxLimpar() {
+  document.getElementById('plhMxBusca').value = ''; document.getElementById('plhMxPlat').value = '';
+  document.getElementById('plhMxSit').value = 'ativos'; document.getElementById('plhMxAlerta').checked = false;
+  plhMx.filtro = null; plhRenderMatriz();
+}
+function plhMxFiltro(k) { plhMx.filtro = plhMx.filtro === k ? null : k; plhRenderMatriz(); }
+function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.lados || f.foraPadrao || f.divergente || f.valeProximo; }
+/** "72 Meses" → "72m" · "3160 Dias" → "3160d" */
+function plhMxPer(txt) {
+  var t = String(txt || '').toLowerCase(), n = (t.match(/[\d.,]+/) || [''])[0];
+  return n ? n + (/dia/.test(t) ? 'd' : /ano/.test(t) ? 'a' : 'm') : txt;
+}
+
+function plhRenderMatriz() {
+  if (!plh.data) return;
+  var m = plh.data.matriz;
+  if (!m) { document.getElementById('plhMxTabela').innerHTML = '<div class="empty-state"><h3>Sem dados da matriz</h3></div>'; return; }
+  var selP = document.getElementById('plhMxPlat');
+  if (!selP.options.length) {
+    var ps = {}; m.linhas.forEach(function (l) { if (l.plat) ps[l.plat] = true; });
+    (plh.data.jaquetas || []).forEach(function (j) { if (j.plat) ps[j.plat] = true; });
+    selP.innerHTML = '<option value="">Todas as plataformas</option>' + Object.keys(ps).sort().map(function (p) { return '<option>' + plhE(p) + '</option>'; }).join('');
+  }
+  var regrasLink = m.regrasGid !== null && m.regrasGid !== undefined
+    ? '<span class="plh-link" onclick="plhAbrirPlanilha(' + Number(m.regrasGid) + ')">aba PLH_Regras</span>' : 'aba PLH_Regras';
+  document.getElementById('plhMxNota').innerHTML = '<i class="fas fa-circle-info" style="color:#1976d2;margin-top:2px"></i><span>' +
+    'Cada célula mostra a periodicidade cadastrada no GIDES; clique para ver os componentes. "Falta" e "fora do padrão" comparam com a ' + regrasLink +
+    ', preenchida com o mais comum hoje: corrija lá o que não for regra e clique em Atualizar dados. ' +
+    'Limite: o export de planejamento só traz componentes que têm algum plano, então um componente sem nenhum plano não aparece.' +
+    (m.regrasErro ? ' <b style="color:#b3261e">' + plhE(m.regrasErro) + '</b>' : '') + '</span>';
+
+  var q = document.getElementById('plhMxBusca').value.toLowerCase().trim();
+  var fp = selP.value, fs = document.getElementById('plhMxSit').value, so = document.getElementById('plhMxAlerta').checked;
+  var base = m.linhas.filter(function (l) {
+    if (fp && l.plat !== fp) return false;
+    if (fs === 'ativos' && plhMxDesat(l.situacao)) return false;
+    if (fs === 'desat' && !plhMxDesat(l.situacao)) return false;
+    if (q && (l.objeto + ' ' + l.situacao).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+  document.getElementById('plhMxKpis').innerHTML = PLH_MX_KPIS.map(function (c) {
+    var n = base.filter(function (l) { return l.flags[c.k]; }).length;
+    return '<div class="plh-mx-kpi' + (plhMx.filtro === c.k ? ' ativo' : '') + '" onclick="plhMxFiltro(\'' + c.k + '\')" title="Dutos com este alerta. Clique para ver só eles">' +
+      '<i class="fas ' + c.i + ' i" style="color:' + c.c + '"></i><div class="n' + (n ? '' : ' zero') + '">' + n + '</div><div class="t">' + plhE(c.t) + '</div></div>';
+  }).join('');
+  var lista = base.filter(function (l) {
+    if (plhMx.filtro && !l.flags[plhMx.filtro]) return false;
+    if (so && !plhMxTemAlerta(l)) return false;
+    return true;
+  });
+  document.getElementById('plhMxCount').textContent = lista.length + ' duto' + (lista.length === 1 ? '' : 's');
+
+  // colunas: só os procedimentos que aparecem nas linhas visíveis
+  var usadas = {};
+  lista.forEach(function (l) { Object.keys(l.cel).forEach(function (p) { usadas[p] = true; }); });
+  var cols = m.colunas.filter(function (c) { return usadas[c.proc]; });
+  if (!cols.length) cols = m.colunas;
+  var grupos = [];
+  cols.forEach(function (c) { var g = grupos[grupos.length - 1]; if (g && g.g === c.grupo) g.n++; else grupos.push({ g: c.grupo, n: 1 }); });
+  var cab = '<tr><th class="nome" rowspan="2" style="vertical-align:bottom;text-transform:none;font-size:11px;letter-spacing:0">Duto</th>' +
+    grupos.map(function (g) { return '<th colspan="' + g.n + '">' + plhE(g.g) + '</th>'; }).join('') + '</tr>' +
+    '<tr>' + cols.map(function (c) { return '<th>' + plhE(c.proc) + '</th>'; }).join('') + '</tr>';
+
+  var corpo = '', platAtual = null;
+  lista.forEach(function (l) {
+    if (l.plat !== platAtual) {
+      platAtual = l.plat;
+      corpo += '<tr class="plat"><td colspan="' + (cols.length + 1) + '">' + plhE(l.plat || 'Sem plataforma') + '</td></tr>';
+    }
+    var li = m.linhas.indexOf(l);
+    var celulas = cols.map(function (c) {
+      var x = l.cel[c.proc];
+      if (!x) return '<td class="c vazio"></td>';
+      var onclick = ' onclick="plhMxDetalhe(' + li + ',\'' + plhE(c.proc) + '\')"';
+      if (!x.n) {
+        var dica = x.lados ? 'Riser: ' + x.lados.em + ' componente(s) com inspeção emersa e ' + x.lados.sub + ' com submersa' : 'Exigido pela regra e não cadastrado';
+        return '<td class="c falta"' + onclick + ' title="' + plhE(dica) + '">' + (x.lados ? '<i class="fas fa-left-right"></i>' : 'falta') + '</td>';
+      }
+      var st = x.dias === null ? 'st-sem' : x.dias < 0 ? 'st-venc' : x.dias <= 365 ? 'st-12' : 'st-ok';
+      var pers = {}; x.itens.forEach(function (i) { pers[plhMxPer(i.per)] = true; });
+      var flags = (x.divergente ? '<i class="fas fa-not-equal" style="color:#8e24aa"></i>' : '') +
+        (x.foraPadrao ? '<i class="fas fa-ruler" style="color:#e67e22"></i>' : '') +
+        (x.valeProximo ? '<b style="color:#1976d2">1×</b>' : '') +
+        (x.lados ? '<i class="fas fa-left-right" style="color:#b3261e"></i>' : '') +
+        (x.faltam.length ? '<i class="fas fa-square-minus" style="color:#b3261e"></i>' : '');
+      var dica2 = x.n + ' componente(s) · ' + Object.keys(pers).join(', ') + (x.prox ? ' · próxima ' + plhDataBR(x.prox) : '');
+      return '<td class="c ' + st + '"' + onclick + ' title="' + plhE(dica2) + '"><div class="per">' + plhE(Object.keys(pers).join(' / ')) + '</div>' +
+        (flags ? '<div class="fl">' + flags + '</div>' : '') + '</td>';
+    }).join('');
+    var nomeObj = l.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(l.objId) + '\')">' + plhE(l.objeto) + '</span>' : plhE(l.objeto);
+    var sub = l.flags.semPlano ? 'Sem planejamento · ' + (l.situacao || '') : (l.situacao || '') + ' · ' + l.nComps + ' comp.';
+    corpo += '<tr class="' + (l.flags.semPlano ? 'semplano' : '') + '"><td class="nome"><div class="o" title="' + plhE(l.objeto) + '">' + nomeObj + '</div>' +
+      '<div class="s" title="' + plhE(sub) + '">' + plhE(sub) + '</div></td>' + celulas + '</tr>';
+  });
+  document.getElementById('plhMxTabela').innerHTML = lista.length
+    ? '<div class="plh-mx-wrap"><table class="plh-mx"><thead>' + cab + '</thead><tbody>' + corpo + '</tbody></table></div>'
+    : '<div class="empty-state"><i class="fas fa-table-cells"></i><h3>Nenhum duto com esses filtros</h3></div>';
+  plhRenderMatrizJaq(fp, q);
+}
+
+function plhRenderMatrizJaq(fp, q) {
+  var jq = (plh.data.jaquetas || []).filter(function (j) {
+    return (!fp || j.plat === fp) && (!q || ('jaqueta ' + j.plataforma).toLowerCase().indexOf(q) >= 0);
+  });
+  var niveis = ['N1 Emersa', 'N1 Submersa', 'N2 Emersa', 'N2 Submersa'];
+  jq.forEach(function (j) { if (niveis.indexOf(j.nivel) < 0) niveis.push(j.nivel); });
+  var plats = {}; jq.forEach(function (j) { (plats[j.plat] = plats[j.plat] || {})[j.nivel] = j; });
+  var nomes = Object.keys(plats).sort();
+  var el = document.getElementById('plhMxJaq');
+  if (!nomes.length) { el.innerHTML = '<div class="plh-muted">Nenhuma jaqueta com esses filtros</div>'; return; }
+  var fmt = function (d) { if (!d) return '-'; return d % 365 === 0 ? (d / 365) + ' anos' : Math.round(d / 30.4375) + 'm'; };
+  var corpo = nomes.map(function (p) {
+    var any = plats[p][Object.keys(plats[p])[0]];
+    return '<tr><td class="nome"><div class="o">' + plhE(any.plataforma) + '</div><div class="s">' + plhE(any.acesso || '') + '</div></td>' +
+      niveis.map(function (n) {
+        var j = plats[p][n];
+        if (!j) return '<td class="c vazio"></td>';
+        if (!j.plano) return '<td class="c falta" title="Sem plano cadastrado">sem plano</td>';
+        var st = j.dias === null ? 'st-sem' : j.dias < 0 ? 'st-venc' : j.dias <= 365 ? 'st-12' : 'st-ok';
+        var dica = 'Plano ' + j.plano + ' · ' + (j.per ? j.per + ' dias' : 'sem periodicidade') + ' · próxima ' + plhDataBR(j.prox) + ' · ' + j.status +
+          (j.plancor ? ' · No PLANCOR (' + j.plancor + ')' : '');
+        return '<td class="c ' + st + '" title="' + plhE(dica) + '" onclick="plhAbrirFicha(\'plat\',\'' + plhE(j.plat) + '\')">' +
+          '<div class="per">' + plhE(fmt(j.per)) + '</div><div class="fl" style="color:#7b8794">' + plhE(j.prox ? plhDataBR(j.prox).slice(3) : '') + '</div></td>';
+      }).join('') + '</tr>';
+  }).join('');
+  el.innerHTML = '<div class="plh-mx-wrap" style="max-height:none"><table class="plh-mx"><thead><tr><th class="nome" style="top:0;text-transform:none">Plataforma</th>' +
+    niveis.map(function (n) { return '<th style="top:0">' + plhE(n) + '</th>'; }).join('') + '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
+}
+
+function plhMxDetalhe(li, proc) {
+  var l = plh.data.matriz.linhas[li], x = l.cel[proc];
+  var regra = (plh.data.matriz.regras || []).filter(function (g) { return g.proc === proc; });
+  var linhas = x.itens.map(function (i) {
+    return '<tr><td>' + plhE(i.comp) + '<div class="plh-muted" style="font-size:11px">' + plhE(i.tipo) + ' · planej. ' + plhE(i.planej) + '</div></td>' +
+      '<td><b>' + plhE(i.per) + '</b>' + (i.emDias ? ' <span class="plh-muted">(≈' + String(i.meses).replace('.', ',') + ' meses)</span>' : '') +
+      (i.foraPadrao ? '<div style="color:#e67e22;font-size:11px">padrão ' + i.padrao + ' meses</div>' : '') +
+      (i.semRegra ? '<div class="plh-muted" style="font-size:11px">sem regra para ' + plhE(i.tipo) + '</div>' : '') + '</td>' +
+      '<td>' + plhE(i.vale) + '</td><td>' + plhDataBR(i.ult) + '</td><td>' + plhDataBR(i.prox) + '</td><td>' + plhStatusChip(i.status) + '</td></tr>';
+  }).join('');
+  var avisos = [];
+  x.faltam.forEach(function (f) { avisos.push('Falta <b>' + plhE(proc) + '</b> no ' + plhE(f.tipo) + (f.alt.length ? ' (ou ' + plhE(f.alt.join('/')) + ')' : '') + ', exigido pela regra.'); });
+  if (x.lados) avisos.push('Riser com <b>' + x.lados.em + '</b> componente(s) com inspeção emersa e <b>' + x.lados.sub + '</b> com submersa: um dos lados pode estar sem ' + plhE(proc) + '.');
+  if (x.divergente) avisos.push('Componentes com periodicidades diferentes.');
+  if (x.valeProximo) avisos.push('"Vale para: Próximo": a periodicidade vale só para a próxima inspeção.');
+  document.body.insertAdjacentHTML('beforeend', '<div class="plh-modal-bg" id="plhMxModal" onclick="if(event.target===this)plhMxFechar()"><div class="plh-modal" style="max-width:860px">' +
+    '<h3><i class="fas fa-table-cells" style="color:#1976d2"></i> ' + plhE(l.objeto) + ' · ' + plhE(proc) + '</h3>' +
+    '<div style="padding:14px 22px">' +
+    (avisos.length ? '<div class="info" style="margin-bottom:12px;background:#fff6e0;color:#7a4b00">' + avisos.join('<br>') + '</div>' : '') +
+    (regra.length ? '<div class="info" style="margin-bottom:12px">Regra: ' + regra.map(function (g) {
+      return plhE(g.tipo) + ' → ' + (g.padrao ? g.padrao + ' meses' : 'sem periodicidade padrão') + (g.obrig ? ', obrigatório' : '') + (g.alt.length ? ', aceita ' + plhE(g.alt.join('/')) : '');
+    }).join(' · ') + '</div>' : '') +
+    (linhas ? '<div class="table-container" style="box-shadow:none;overflow-x:auto"><table class="plh-mx-det" style="width:100%"><thead><tr><th>Componente</th><th>Periodicidade</th><th>Vale para</th><th>Última</th><th>Próxima</th><th>Situação</th></tr></thead><tbody>' + linhas + '</tbody></table></div>' : '') +
+    '</div><div class="rodape"><button class="btn btn-secondary" onclick="plhMxFechar()">Fechar</button></div></div></div>');
+}
+function plhMxFechar() { var m = document.getElementById('plhMxModal'); if (m) m.remove(); }
 
 /* ---------------- FLUXO DE INSPEÇÃO ---------------- */
 function plhFxLimpar() {
