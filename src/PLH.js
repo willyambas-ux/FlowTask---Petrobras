@@ -365,7 +365,8 @@ function getPlhData() {
       per: plhTxt_(r.Periodicidade), planej: plhTxt_(r.Planejamento), situacao: plhTxt_(r.Situacao_Duto),
       ult: plhIso_(ult), prox: plhIso_(prox), dias: dias, status: plhStatusPrazo_(dias, PLH_JANELA_PLANEJ),
       semAnterior: !ult, descCritica: plhNorm_(r.Tem_Descont_Critica) === 'sim',
-      tipoComp: plhTxt_(r.Tipo_Componente), vale: plhTxt_(r.Vale_Para), ext: plhNum_(r.Extensao_m)
+      tipoComp: plhTxt_(r.Tipo_Componente), vale: plhTxt_(r.Vale_Para), ext: plhNum_(r.Extensao_m),
+      local: plhPlataforma_(r.Local_Instalacao), tramo: plhTxt_(r.Tramo_Suporte)
     });
   });
 
@@ -541,7 +542,7 @@ function getPlhData() {
   var plancorRes = plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje);
   if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
-  var matriz = plhMontarMatriz_(ss, plan, objetos);
+  var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows);
 
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
@@ -1255,8 +1256,22 @@ function plhPeriodo_(txt) {
   return { meses: n, dias: null, txt: plhTxt_(txt) };
 }
 
-function plhMontarMatriz_(ss, plan, objetos) {
+function plhMontarMatriz_(ss, plan, objetos, icpiRows) {
   var regras = plhLerRegras_(ss);
+  var objPorId = {};
+  objetos.forEach(function (o) { objPorId[o.id] = o; });
+  var icpiPor = {};
+  (icpiRows || []).forEach(function (r) { var k = plhNorm_(r.objeto) + '|' + plhNorm_(r.proc); (icpiPor[k] = icpiPor[k] || []).push(r); });
+  var ladoICPI = function (p) {
+    if (!p.prox) return '';
+    var alvo = new Date(p.prox + 'T00:00:00').getTime();
+    var u = {};
+    (icpiPor[plhNorm_(p.objeto) + '|' + plhNorm_(p.proc)] || []).forEach(function (r) {
+      if (r.venc && Math.abs(r.venc.getTime() - alvo) <= 3 * 86400000 && r.uep) u[plhPlataforma_(r.uep)] = true;
+    });
+    var k = Object.keys(u);
+    return k.length === 1 ? k[0] : '';
+  };
   var regraPor = {}, exigidas = {};
   regras.lista.forEach(function (g) {
     regraPor[plhNorm_(g.tipo) + '|' + g.proc] = g;
@@ -1293,14 +1308,21 @@ function plhMontarMatriz_(ss, plan, objetos) {
     var per = plhPeriodo_(p.per);
     var regra = regraPor[plhNorm_(p.tipoComp) + '|' + proc];
     var item = {
-      comp: p.comp, compId: p.compId, tipo: p.tipoComp, planej: p.planej, per: per.txt, meses: per.meses,
+      proc: proc, comp: p.comp, compId: p.compId, tipo: p.tipoComp, planej: p.planej, per: per.txt, meses: per.meses,
       emDias: per.dias !== null, vale: p.vale, ult: p.ult, prox: p.prox, dias: p.dias, status: p.status,
       padrao: regra ? regra.padrao : null, semRegra: !regra
     };
     item.foraPadrao = !!(regra && regra.padrao && per.meses !== null && Math.abs(per.meses - regra.padrao) > 0.5);
     (l.cel[proc] = l.cel[proc] || { itens: [] }).itens.push(item);
-    var cc = l.comps[p.compId || p.comp] = l.comps[p.compId || p.comp] || { comp: p.comp, tipo: p.tipoComp, procs: {} };
+    // flexível: o mesmo componente aparece uma vez por ponta (Local Instalação / Tramo diferentes)
+    var chaveC = (p.compId || p.comp) + (p.local ? '|' + p.local : '');
+    var cc = l.comps[chaveC] = l.comps[chaveC] ||
+      { chave: chaveC, comp: p.tramo ? p.tipoComp + ' [' + p.tramo + ']' : p.comp, compId: p.compId, tipo: p.tipoComp, ext: p.ext,
+        local: p.local, procs: {}, itens: [], ladosICPI: {} };
     cc.procs[proc] = true;
+    cc.itens.push(item);
+    var lado = ladoICPI(p);
+    if (lado) cc.ladosICPI[lado] = true;
   });
 
   // Procedimento exigido que falta no duto: a regra vale para o duto (não para cada componente),
@@ -1340,7 +1362,11 @@ function plhMontarMatriz_(ss, plan, objetos) {
     });
   });
 
-  var resumo = { objetos: 0, semPlano: 0, lados: 0, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+  var comps = plhLerComponentes_(ss);
+  ordem.forEach(function (k) { linhas[k].esq = plhEsqueleto_(linhas[k], objPorId[linhas[k].objId], comps); });
+  plhGravarComponentes_(comps, ordem.map(function (k) { return linhas[k]; }));
+
+  var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
   var lista = ordem.map(function (k) {
     var l = linhas[k];
     var cel = {};
@@ -1362,7 +1388,7 @@ function plhMontarMatriz_(ss, plan, objetos) {
         lados: (l.lados || []).filter(function (x) { return x.proc === proc; })[0] || null
       };
     });
-    var flags = { semPlano: l.nPlanos === 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
+    var flags = { semPlano: l.nPlanos === 0, posicao: l.esq ? l.esq.alertas.length : 0, lados: (l.lados || []).length, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
     Object.keys(cel).forEach(function (p) {
       var c = cel[p];
       if (c.faltam.length) flags.faltando++;
@@ -1371,9 +1397,10 @@ function plhMontarMatriz_(ss, plan, objetos) {
     });
     resumo.objetos++;
     if (flags.semPlano) resumo.semPlano++;
+    if (flags.posicao) resumo.posicao++;
     ['lados', 'faltando', 'foraPadrao', 'divergente', 'emDias', 'valeProximo', 'vencidas', 'semRegra'].forEach(function (f) { resumo[f] += flags[f]; });
     return { objId: l.objId, objeto: l.objeto, plat: l.plat, situacao: l.situacao, classe: l.classe,
-             nPlanos: l.nPlanos, nComps: Object.keys(l.comps).length, cel: cel, flags: flags, lados: l.lados || [] };
+             nPlanos: l.nPlanos, nComps: Object.keys(l.comps).length, cel: cel, flags: flags, lados: l.lados || [], esq: l.esq };
   });
   lista.sort(function (a, b) { return a.plat === b.plat ? (a.objeto < b.objeto ? -1 : 1) : (a.plat < b.plat ? -1 : 1); });
 
@@ -1384,6 +1411,189 @@ function plhMontarMatriz_(ss, plan, objetos) {
   });
   Object.keys(procsVistos).sort().forEach(function (p) { if (!usados[p]) colunas.push({ proc: p, grupo: 'Outros' }); });
 
-  return { colunas: colunas, linhas: lista, resumo: resumo,
+  return { colunas: colunas, linhas: lista, resumo: resumo, compGid: comps.gid, compErro: comps.erro || '', limiteEmerso: comps.limite,
            regras: regras.lista, regrasGid: regras.gid, regrasCriada: regras.criada, regrasErro: regras.erro || '' };
+}
+
+
+/* ============================================================================
+ *  COMPONENTES: posição de cada componente no duto (esqueleto)
+ *  Rígido:   lado A emerso · lado A submerso · leito · lado B submerso · lado B emerso
+ *            emerso = riser curto (≤ limite, padrão 15 m) → PIDR-4
+ *            submerso = riser longo → PIDR-3 (PIDR-8 substitui)
+ *            leito = trecho → PIDR-1 (PIDR-8 substitui)
+ *  Flexível: lado A riser · leito · lado B riser (riser: PIDF-4 + PIDF-3/PIDF-1)
+ *  Lado: UEP do ICPI (pela demanda do componente); senão, a correção da aba PLH_Componentes.
+ * ==========================================================================*/
+var PLH_ABA_COMP = 'PLH_Componentes';
+var PLH_COMP_COLS = ['Componente BDIEP', 'Duto', 'Componente', 'Tipo', 'Extensão (m)', 'Procedimentos',
+                     'Posição (automática)', 'Lado (automático)', 'Posição (corrigir)', 'Lado (corrigir)', 'Motivo / observação'];
+var PLH_COMP_LIMITE_PADRAO = 15;
+var PLH_POS_ROTULO = { emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' };
+var PLH_POS_ESPERADO = {
+  rigido: { emerso: { base: ['PIDR-4'], subst: [] }, submerso: { base: ['PIDR-3'], subst: ['PIDR-8'] }, leito: { base: ['PIDR-1'], subst: ['PIDR-8'] } },
+  flexivel: { riser: { base: ['PIDF-4', 'PIDF-3'], subst: ['PIDF-1'] }, leito: { base: ['PIDF-1'], subst: [] } }
+};
+
+function plhLerComponentes_(ss) {
+  var res = { sh: null, gid: null, porId: {}, limite: PLH_COMP_LIMITE_PADRAO, erro: '', linhas: 0 };
+  var sh = ss.getSheetByName(PLH_ABA_COMP);
+  if (!sh) {
+    try {
+      sh = ss.insertSheet(PLH_ABA_COMP);
+      sh.getRange(1, 1, 1, PLH_COMP_COLS.length).setValues([PLH_COMP_COLS])
+        .setFontWeight('bold').setBackground('#2c3e50').setFontColor('#ffffff');
+      sh.getRange(1, 9, 1, 3).setBackground('#00a085');
+      sh.setFrozenRows(1);
+      sh.setTabColor('#00a085');
+      sh.getRange(1, 13).setValue('Limite emerso (m)');
+      sh.getRange(2, 13).setValue(PLH_COMP_LIMITE_PADRAO);
+      sh.getRange(1, 13).setFontWeight('bold');
+    } catch (e) { res.erro = 'Não foi possível criar a aba PLH_Componentes: ' + e.message; return res; }
+  }
+  res.sh = sh; res.gid = sh.getSheetId();
+  var vals = sh.getDataRange().getValues();
+  var cab = (vals[0] || []).map(plhNorm_);
+  var ix = function (n) { return cab.indexOf(plhNorm_(n)); };
+  var cLim = ix('Limite emerso (m)');
+  if (cLim >= 0 && vals.length > 1) { var lim = plhNum_(vals[1][cLim]); if (lim) res.limite = lim; }
+  var c = { id: ix('Componente BDIEP'), pos: ix('Posição (corrigir)'), lado: ix('Lado (corrigir)'), motivo: ix('Motivo / observação') };
+  for (var i = 1; i < vals.length; i++) {
+    var id = c.id < 0 ? '' : plhTxt_(vals[i][c.id]);
+    if (!id) continue;
+    res.linhas++;
+    var g = function (k) { return c[k] < 0 ? '' : plhTxt_(vals[i][c[k]]); };
+    res.porId[id] = { pos: plhPosicaoDe_(g('pos')), lado: plhPlataforma_(g('lado')), motivo: g('motivo'), existe: true };
+  }
+  return res;
+}
+
+/** "Riser emerso" / "submerso" / "leito" / "trecho" → chave da posição */
+function plhPosicaoDe_(t) {
+  var n = plhNorm_(t);
+  if (!n) return '';
+  if (/^emer|emerso/.test(n)) return 'emerso';
+  if (/submer/.test(n)) return 'submerso';
+  if (/leito|trecho|flow/.test(n)) return 'leito';
+  if (/equip|anm|plem/.test(n)) return 'equip';
+  if (/terra/.test(n)) return 'terra';
+  if (/riser/.test(n)) return 'riser';
+  return '';
+}
+
+function plhEhPlataforma_(x) { return /^P[A-Z]{1,4}\d{2}[A-Z]?$/.test(plhPlataforma_(x)); }
+
+function plhEsqueleto_(l, obj, comps) {
+  var lista = Object.keys(l.comps).map(function (k) { return l.comps[k]; });
+  if (!lista.length) return null;
+  var tipoTxt = lista.map(function (c) { return plhNorm_(c.tipo); }).join(' ');
+  var mat = /rigido/.test(tipoTxt) ? 'rigido' : /flexivel/.test(tipoTxt) ? 'flexivel' : null;
+  var esperado = mat ? PLH_POS_ESPERADO[mat] : {};
+  // pontas do duto (CIDR): só plataforma tem riser
+  var pontas = [];
+  if (obj) [obj.origem, obj.destino].forEach(function (x) { if (plhEhPlataforma_(x)) { var p = plhPlataforma_(x); if (pontas.indexOf(p) < 0) pontas.push(p); } });
+
+  var out = [];
+  lista.forEach(function (c) {
+    var t = plhNorm_(c.tipo), auto = '';
+    var nomesP = Object.keys(c.procs);
+    if (nomesP.length && nomesP.every(function (x) { return /^(FAIXA|EXT_)/.test(x); })) auto = 'terra';
+    else if (/trecho|flow/.test(t)) auto = 'leito';
+    else if (/riser rigido/.test(t)) {
+      // o procedimento decide; a extensão só desempata
+      var temEm = !!c.procs['PIDR-4'], temSub = !!(c.procs['PIDR-3'] || c.procs['PIDR-8'] || c.procs['PIDR-1']);
+      if (temEm && !temSub) auto = 'emerso';
+      else if (temSub && !temEm) auto = 'submerso';
+      else auto = (c.ext !== null && c.ext !== undefined && c.ext <= comps.limite) ? 'emerso' : 'submerso';
+    } else if (/riser flexivel/.test(t)) auto = 'riser';
+    else auto = 'equip';
+    var ladosAuto = Object.keys(c.ladosICPI);
+    var ladoAuto = c.local || (ladosAuto.length === 1 ? ladosAuto[0] : '');
+    var corr = comps.porId[c.chave] || {};
+    var pos = corr.pos || auto, lado = corr.lado || ladoAuto;
+    if (pos === 'leito' || pos === 'equip' || pos === 'terra') lado = corr.lado || '';
+    // lado sobrando: duto com só uma plataforma nas pontas
+    if (!lado && (pos === 'emerso' || pos === 'submerso' || pos === 'riser') && pontas.length === 1) lado = pontas[0];
+    var esp = esperado[pos];
+    var nomes = Object.keys(c.procs);
+    var estado = 'ok', subst = '';
+    if (esp) {
+      var temBase = esp.base.filter(function (b) { return c.procs[b]; });
+      var temSubst = esp.subst.filter(function (b) { return c.procs[b]; });
+      if (temBase.length === esp.base.length) estado = 'ok';
+      else if (temSubst.length && pos !== 'riser') { estado = 'substitui'; subst = temSubst[0] + ' no lugar da ' + esp.base[0]; }
+      else if (pos === 'riser' && c.procs['PIDF-4'] && temSubst.length) { estado = 'substitui'; subst = temSubst[0] + ' no lugar da PIDF-3'; }
+      else estado = 'falta';
+    }
+    out.push({
+      chave: c.chave, compId: c.compId, comp: c.comp, tipo: c.tipo, ext: c.ext === undefined ? null : c.ext,
+      pos: pos, posAuto: auto, posManual: !!corr.pos, lado: lado, ladoAuto: ladoAuto, ladoManual: !!corr.lado,
+      ladoDuvida: !c.local && ladosAuto.length > 1 ? ladosAuto.join('/') : '',
+      motivo: corr.motivo || '', procs: nomes.sort(), estado: estado, subst: subst,
+      esperado: esp ? esp.base.join(' + ') : '',
+      itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej }; })
+    });
+  });
+
+  // posições esperadas
+  var slots = [];
+  var slot = function (pos, lado) { slots.push({ pos: pos, lado: lado || '' }); };
+  if (mat === 'rigido') {
+    if (pontas[0]) { slot('emerso', pontas[0]); slot('submerso', pontas[0]); }
+    slot('leito', '');
+    if (pontas[1]) { slot('submerso', pontas[1]); slot('emerso', pontas[1]); }
+  } else if (mat === 'flexivel') {
+    if (pontas[0]) slot('riser', pontas[0]);
+    slot('leito', '');
+    if (pontas[1]) slot('riser', pontas[1]);
+  }
+  var noSlot = function (c, sl) { return c.pos === sl.pos && (sl.pos === 'leito' || c.lado === sl.lado); };
+  // dedução: um componente sem lado e uma única posição vazia daquele tipo → vai para ela
+  ['emerso', 'submerso', 'riser'].forEach(function (pos) {
+    var semLado = out.filter(function (c) { return c.pos === pos && !c.lado; });
+    var vazios = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
+    if (semLado.length === 1 && vazios.length === 1) { semLado[0].lado = vazios[0].lado; semLado[0].ladoDeduzido = true; }
+  });
+  var posicoes = [], alertas = [];
+  slots.forEach(function (sl) {
+    var cs = out.filter(function (c) { return noSlot(c, sl); });
+    var p = { pos: sl.pos, lado: sl.lado, rotulo: PLH_POS_ROTULO[sl.pos] + (sl.lado ? ' ' + sl.lado : ''), comps: cs,
+              esperado: esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '' };
+    if (!cs.length) {
+      p.vazio = true;
+      if (!(mat === 'flexivel' && sl.pos === 'leito')) alertas.push(p.rotulo + ': nenhum componente com planejamento (esperado ' + p.esperado + ')');
+    }
+    cs.forEach(function (c) { if (c.estado === 'falta') alertas.push(p.rotulo + ' (' + c.comp + '): sem ' + c.esperado); });
+    if (cs.length > 1 && sl.pos !== 'leito') alertas.push(p.rotulo + ': ' + cs.length + ' componentes na mesma posição');
+    posicoes.push(p);
+  });
+  var usados = {};
+  posicoes.forEach(function (p) { p.comps.forEach(function (c) { usados[c.chave] = true; }); });
+  var fora = out.filter(function (c) { return !usados[c.chave]; });
+  fora.forEach(function (c) {
+    if (c.pos === 'equip' || c.pos === 'terra') return;
+    alertas.push(c.comp + ': ' + PLH_POS_ROTULO[c.pos] + (c.lado ? ' lado ' + c.lado + ' (não é ponta do duto no CIDR)' : ' sem lado identificado') + ': informe na aba PLH_Componentes');
+  });
+  return { mat: mat, pontas: pontas, posicoes: posicoes, fora: fora, alertas: alertas, comps: out };
+}
+
+/** Acrescenta na aba os componentes que ainda não estão lá (não altera linhas existentes). */
+function plhGravarComponentes_(comps, linhas) {
+  if (!comps.sh) return;
+  var novas = [];
+  linhas.forEach(function (l) {
+    if (!l.esq) return;
+    l.esq.comps.forEach(function (c) {
+      if (!c.chave || comps.porId[c.chave]) return;
+      comps.porId[c.chave] = { existe: true };
+      novas.push([c.chave, l.objeto, c.comp, c.tipo, c.ext === null ? '' : c.ext, c.procs.join(', '),
+                  PLH_POS_ROTULO[c.posAuto] || '', c.ladoAuto || '', '', '', '']);
+    });
+  });
+  if (!novas.length) return;
+  novas.sort(function (a, b) { return a[1] === b[1] ? (a[2] < b[2] ? -1 : 1) : (a[1] < b[1] ? -1 : 1); });
+  try {
+    var ini = Math.max(comps.sh.getLastRow(), 1) + 1;
+    comps.sh.getRange(ini, 1, novas.length, PLH_COMP_COLS.length).setValues(novas);
+  } catch (e) { comps.erro = 'Não foi possível gravar na aba PLH_Componentes: ' + e.message; }
 }

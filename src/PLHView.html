@@ -187,6 +187,29 @@
 .plh-dt-tab td{vertical-align:middle;font-size:12.5px}
 .plh-dt-tab td:first-child strong{white-space:nowrap}
 #plhDtStats .stat-info p{font-size:12.5px;line-height:1.3}
+.plh-esq-tg{border:none;background:none;width:18px;padding:0;margin-right:2px;color:#7b8794;cursor:pointer;font-size:10px;display:inline-block}
+.plh-esq-tg:hover{color:#1976d2}
+.plh-esq-linha td{background:#fafbfc;padding:0 !important}
+.plh-esq{position:sticky;left:0;padding:14px 16px;box-sizing:border-box;text-align:left}
+.plh-esq-fila{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding-bottom:4px}
+.plh-esq-pos{flex:1 1 0;min-width:170px;max-width:260px;position:relative;padding:0 8px}
+.plh-esq-pos:not(:last-child)::after{content:'';position:absolute;right:-6px;top:22px;width:12px;height:2px;background:#c9d2dc}
+.plh-esq-pos .cab{font-size:10.5px;font-weight:700;color:#5f6b7c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;white-space:nowrap}
+.plh-esq-pos .cab .esp{font-weight:500;text-transform:none;letter-spacing:0;color:#9aa0ac}
+.plh-esq-c{background:#fff;border:1px solid #e3e7ec;border-left:4px solid #27ae60;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11.5px}
+.plh-esq-c.substitui{border-left-color:#8e24aa}
+.plh-esq-c.falta{border-left-color:#E5534B}
+.plh-esq-c .n{font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plh-esq-c .m{color:#7b8794;font-size:10.5px;margin-top:1px}
+.plh-esq-c .p{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
+.plh-esq-c .p span{background:#eef1f4;border-radius:6px;padding:2px 6px;font-size:10.5px;font-weight:600;color:#3d4757}
+.plh-esq-c .sub{color:#8e24aa;font-weight:600;font-size:10.5px;margin-top:4px}
+.plh-esq-c .mot{color:#5f6b7c;font-style:italic;font-size:10.5px;margin-top:3px}
+.plh-esq-vazio{border:2px dashed #f3b8b3;border-radius:8px;padding:10px;color:#b3261e;font-size:11px;text-align:center;background:#fff}
+.plh-esq-tag{display:inline-block;font-size:9.5px;border-radius:4px;padding:0 4px;margin-left:4px;background:#e8f1fb;color:#1976d2;font-weight:600}
+.plh-esq-al{margin-top:10px;font-size:11.5px;color:#b3261e;line-height:1.5}
+.plh-esq-fora{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.plh-esq-fora .plh-esq-c{min-width:200px;max-width:280px;margin:0}
 .plh-mx-det td,.plh-mx-det th{font-size:12px;padding:6px 8px;border-bottom:1px solid #f0f2f5;text-align:left}
 @media(max-width:1100px){.plh-mx-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.plh-mx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.plh-mx .nome{min-width:150px}}
@@ -306,6 +329,7 @@
       <label class="plh-muted" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" id="plhMxAlerta" onchange="plhRenderMatriz()"> Só dutos com alerta</label>
       <button class="btn-clear-filters" onclick="plhMxLimpar()"><i class="fas fa-eraser"></i> Limpar</button>
+      <button class="btn btn-secondary" onclick="plhMxAbrirTodos()" title="Abrir ou fechar os componentes de todos os dutos da lista"><i class="fas fa-diagram-next"></i> <span class="btn-label">Componentes</span></button>
       <span id="plhMxCount" class="plh-muted" style="margin-left:auto;"></span>
     </div>
     <div id="plhMxTabela"></div>
@@ -399,7 +423,7 @@
 /* ---------------- estado ---------------- */
 var plh = { data: null, carregando: false, modoFicha: 'plat', erro: '' };
 var PLH_VIEWS = ['plhDash', 'plhDutos', 'plhIcpi', 'plhFluxo', 'plhMatriz', 'plhPend', 'plhFicha'];
-var plhMx = { filtro: null };
+var plhMx = { filtro: null, abertos: {} };
 var plhFx = { etapa: null, grupo: null };
 var PLH_URG = ['1 - Vencido', '2 - Até 30 dias', '3 - Até 90 dias', '4 - Acima de 90 dias', '5 - Verificar dado'];
 var PLH_URG_COR = ['#E5534B', '#F0A030', '#F5D76E', '#9AA5B1', '#C8CCD0'];
@@ -1018,7 +1042,7 @@ function plhDtCopiar() {
 var PLH_MX_KPIS = [
   { k: 'semPlano', t: 'Dutos sem nenhum planejamento', i: 'fa-circle-xmark', c: '#b3261e' },
   { k: 'faltando', t: 'Procedimento exigido faltando', i: 'fa-square-minus', c: '#b3261e' },
-  { k: 'lados', t: 'Riser: lados emerso × submerso diferentes', i: 'fa-left-right', c: '#b3261e' },
+  { k: 'posicao', t: 'Posição do duto vazia ou componente sem lado', i: 'fa-diagram-next', c: '#b3261e' },
   { k: 'foraPadrao', t: 'Periodicidade fora do padrão', i: 'fa-ruler', c: '#e67e22' },
   { k: 'divergente', t: 'Periodicidades diferentes no mesmo duto', i: 'fa-not-equal', c: '#8e24aa' },
   { k: 'valeProximo', t: '"Vale para: Próximo" (só a próxima)', i: 'fa-1', c: '#1976d2' }
@@ -1030,7 +1054,7 @@ function plhMxLimpar() {
   plhMx.filtro = null; plhRenderMatriz();
 }
 function plhMxFiltro(k) { plhMx.filtro = plhMx.filtro === k ? null : k; plhRenderMatriz(); }
-function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.lados || f.foraPadrao || f.divergente || f.valeProximo; }
+function plhMxTemAlerta(l) { var f = l.flags; return f.semPlano || f.faltando || f.posicao || f.foraPadrao || f.divergente || f.valeProximo; }
 /** "72 Meses" → "72m" · "3160 Dias" → "3160d" */
 function plhMxPer(txt) {
   var t = String(txt || '').toLowerCase(), n = (t.match(/[\d.,]+/) || [''])[0];
@@ -1115,13 +1139,79 @@ function plhRenderMatriz() {
     }).join('');
     var nomeObj = l.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(l.objId) + '\')">' + plhE(l.objeto) + '</span>' : plhE(l.objeto);
     var sub = l.flags.semPlano ? 'Sem planejamento · ' + (l.situacao || '') : (l.situacao || '') + ' · ' + l.nComps + ' comp.';
-    corpo += '<tr class="' + (l.flags.semPlano ? 'semplano' : '') + '"><td class="nome"><div class="o" title="' + plhE(l.objeto) + '">' + nomeObj + '</div>' +
-      '<div class="s" title="' + plhE(sub) + '">' + plhE(sub) + '</div></td>' + celulas + '</tr>';
+    var temEsq = l.esq && l.esq.comps && l.esq.comps.length;
+    var aberto = temEsq && plhMx.abertos[l.objeto];
+    var seta = temEsq ? '<button class="plh-esq-tg" onclick="plhMxAbrir(' + li + ')" title="Ver os componentes por posição">' +
+      '<i class="fas fa-chevron-' + (aberto ? 'down' : 'right') + '"></i></button>' : '<span class="plh-esq-tg vazio"></span>';
+    corpo += '<tr class="' + (l.flags.semPlano ? 'semplano' : '') + '"><td class="nome"><div class="o" title="' + plhE(l.objeto) + '">' + seta + nomeObj +
+      (l.flags.posicao ? ' <i class="fas fa-diagram-next" style="color:#b3261e;font-size:10px" title="' + plhE(l.esq.alertas.join('\n')) + '"></i>' : '') + '</div>' +
+      '<div class="s" title="' + plhE(sub) + '" style="padding-left:20px">' + plhE(sub) + '</div></td>' + celulas + '</tr>';
+    if (aberto) corpo += '<tr class="plh-esq-linha"><td colspan="' + (cols.length + 1) + '"><div class="plh-esq">' + plhMxEsqueleto(l) + '</div></td></tr>';
   });
   document.getElementById('plhMxTabela').innerHTML = lista.length
-    ? '<div class="plh-mx-wrap"><table class="plh-mx"><thead>' + cab + '</thead><tbody>' + corpo + '</tbody></table></div>'
+    ? '<div class="plh-mx-wrap" id="plhMxWrap"><table class="plh-mx"><thead>' + cab + '</thead><tbody>' + corpo + '</tbody></table></div>'
     : '<div class="empty-state"><i class="fas fa-table-cells"></i><h3>Nenhum duto com esses filtros</h3></div>';
+  plhMxAjustarEsq();
   plhRenderMatrizJaq(fp, q);
+}
+
+function plhMxAbrir(li) {
+  var l = plh.data.matriz.linhas[li];
+  plhMx.abertos[l.objeto] = !plhMx.abertos[l.objeto];
+  plhRenderMatriz();
+}
+function plhMxAbrirTodos() {
+  var wrap = document.querySelectorAll('#plhMxTabela .plh-esq-tg:not(.vazio)');
+  var algumFechado = Array.prototype.some.call(wrap, function (b) { return b.querySelector('.fa-chevron-right'); });
+  var nomes = Array.prototype.map.call(document.querySelectorAll('#plhMxTabela tr:not(.plat):not(.plh-esq-linha) td.nome .o'), function (e) { return e.getAttribute('title'); });
+  nomes.forEach(function (n) { plhMx.abertos[n] = algumFechado; });
+  plhRenderMatriz();
+}
+function plhMxAjustarEsq() {
+  var w = document.getElementById('plhMxWrap');
+  if (!w) return;
+  var largura = w.clientWidth;
+  Array.prototype.forEach.call(w.querySelectorAll('.plh-esq'), function (e) { e.style.width = largura + 'px'; });
+}
+window.addEventListener('resize', function () { if (currentView === 'plhMatriz') plhMxAjustarEsq(); });
+
+function plhMxCompCard(c) {
+  var est = c.estado === 'substitui' ? 'substitui' : c.estado === 'falta' ? 'falta' : '';
+  var tags = (c.ladoDeduzido ? '<span class="plh-esq-tag" title="Lado deduzido: era a única posição vazia">lado deduzido</span>' : '') +
+    (c.ladoManual || c.posManual ? '<span class="plh-esq-tag" style="background:#e6faf6;color:#00a085" title="Corrigido na aba PLH_Componentes">corrigido</span>' : '') +
+    (c.ladoDuvida ? '<span class="plh-esq-tag" style="background:#fff6e0;color:#a15c00" title="O ICPI aponta mais de uma UEP">ICPI: ' + plhE(c.ladoDuvida) + '</span>' : '');
+  var procs = c.itens.map(function (i) {
+    var cor = i.dias === null ? '' : i.dias < 0 ? 'background:#fde4e2;color:#b3261e' : i.dias <= 365 ? 'background:#fff6e0;color:#7a4b00' : '';
+    return '<span style="' + cor + '" title="' + plhE(i.proc + ' · ' + i.per + ' · última ' + plhDataBR(i.ult) + ' · próxima ' + plhDataBR(i.prox) + (i.vale ? ' · vale para ' + i.vale : '')) + '">' +
+      plhE(i.proc) + ' · ' + plhE(plhMxPer(i.per)) + (i.prox ? ' · ' + plhE(plhDataBR(i.prox).slice(3)) : '') + '</span>';
+  }).join('');
+  var ext = c.ext === null || c.ext === undefined ? '' : (c.ext >= 1000 ? (c.ext / 1000).toFixed(1).replace('.', ',') + ' km' : String(Math.round(c.ext * 10) / 10).replace('.', ',') + ' m');
+  return '<div class="plh-esq-c ' + est + '"><div class="n" title="' + plhE(c.comp) + '">' + plhE(c.comp.replace(/^(Riser|Trecho) (Rígido|Flexível) /, '')) + tags + '</div>' +
+    '<div class="m">' + plhE([c.tipo, ext].filter(String).join(' · ')) + '</div>' +
+    '<div class="p">' + procs + '</div>' +
+    (c.subst ? '<div class="sub"><i class="fas fa-right-left"></i> ' + plhE(c.subst) + '</div>' : '') +
+    (c.estado === 'falta' ? '<div class="sub" style="color:#b3261e">sem ' + plhE(c.esperado) + '</div>' : '') +
+    (c.motivo ? '<div class="mot">' + plhE(c.motivo) + '</div>' : '') + '</div>';
+}
+
+function plhMxEsqueleto(l) {
+  var e = l.esq, m = plh.data.matriz;
+  var fila = e.posicoes.map(function (p) {
+    return '<div class="plh-esq-pos"><div class="cab">' + plhE(p.rotulo) + (p.esperado ? ' <span class="esp">· ' + plhE(p.esperado) + '</span>' : '') + '</div>' +
+      (p.comps.length ? p.comps.map(plhMxCompCard).join('')
+        : (e.mat === 'flexivel' && p.pos === 'leito') ? '<div class="plh-esq-vazio" style="border-color:#dfe3e8;color:#9aa0ac">Sem plano no leito</div>'
+        : '<div class="plh-esq-vazio">Nenhum componente com planejamento</div>') + '</div>';
+  }).join('');
+  var fora = e.fora.length ? '<div class="plh-esq-fora"><div class="plh-muted" style="font-size:11px;width:100%">' +
+    (e.posicoes.length ? 'Fora das posições (equipamento, trecho terrestre ou sem lado):' : 'Componentes:') + '</div>' +
+    e.fora.map(function (c) {
+      return '<div><div class="plh-muted" style="font-size:10.5px;font-weight:700;margin-bottom:3px">' + plhE(({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' })[c.pos] || c.pos) +
+        (c.lado ? ' ' + plhE(c.lado) : '') + '</div>' + plhMxCompCard(c) + '</div>';
+    }).join('') + '</div>' : '';
+  var link = m.compGid !== null && m.compGid !== undefined
+    ? ' <span class="plh-link" style="font-size:11.5px" onclick="plhAbrirPlanilha(' + Number(m.compGid) + ')">corrigir posição, lado ou anotar motivo na aba PLH_Componentes</span>' : '';
+  var al = e.alertas.length ? '<div class="plh-esq-al"><i class="fas fa-triangle-exclamation"></i> ' + e.alertas.map(plhE).join('<br><i class="fas fa-triangle-exclamation"></i> ') + '</div>' : '';
+  return (fila ? '<div class="plh-esq-fila">' + fila + '</div>' : '') + fora + al + '<div style="margin-top:8px">' + link + '</div>';
 }
 
 function plhRenderMatrizJaq(fp, q) {
@@ -1156,8 +1246,16 @@ function plhRenderMatrizJaq(fp, q) {
 function plhMxDetalhe(li, proc) {
   var l = plh.data.matriz.linhas[li], x = l.cel[proc];
   var regra = (plh.data.matriz.regras || []).filter(function (g) { return g.proc === proc; });
+  var posDe = function (i) {
+    var c = l.esq ? l.esq.comps.filter(function (c) { return c.itens.some(function (t) { return t.planej === i.planej; }); })[0] : null;
+    if (!c) return '';
+    var r = ({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' })[c.pos] || '';
+    return r + (c.lado ? ' ' + c.lado : '') + (c.subst ? ' · ' + c.subst : '');
+  };
   var linhas = x.itens.map(function (i) {
-    return '<tr><td>' + plhE(i.comp) + '<div class="plh-muted" style="font-size:11px">' + plhE(i.tipo) + ' · planej. ' + plhE(i.planej) + '</div></td>' +
+    var pos = posDe(i);
+    return '<tr><td>' + plhE(i.comp) + '<div class="plh-muted" style="font-size:11px">' + plhE(i.tipo) + ' · planej. ' + plhE(i.planej) + '</div>' +
+      (pos ? '<div style="font-size:11px;color:#8e24aa">' + plhE(pos) + '</div>' : '') + '</td>' +
       '<td><b>' + plhE(i.per) + '</b>' + (i.emDias ? ' <span class="plh-muted">(≈' + String(i.meses).replace('.', ',') + ' meses)</span>' : '') +
       (i.foraPadrao ? '<div style="color:#e67e22;font-size:11px">padrão ' + i.padrao + ' meses</div>' : '') +
       (i.semRegra ? '<div class="plh-muted" style="font-size:11px">sem regra para ' + plhE(i.tipo) + '</div>' : '') + '</td>' +
