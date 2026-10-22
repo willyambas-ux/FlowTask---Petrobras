@@ -1543,7 +1543,7 @@ var PLH_ABA_COMP = 'PLH_Componentes';
 var PLH_COMP_COLS = ['Componente BDIEP', 'Duto', 'Componente', 'Tipo', 'Extensão (m)', 'Procedimentos',
                      'Posição (automática)', 'Lado (automático)', 'Posição (corrigir)', 'Lado (corrigir)', 'Motivo / observação'];
 var PLH_COMP_LIMITE_PADRAO = 15;
-var PLH_POS_ROTULO = { emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' };
+var PLH_POS_ROTULO = { emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Flowline', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' };
 var PLH_POS_ESPERADO = {
   rigido: { emerso: { base: ['PIDR-4'], subst: [] }, submerso: { base: ['PIDR-3'], subst: ['PIDR-8'] }, leito: { base: ['PIDR-1'], subst: ['PIDR-8'] } },
   flexivel: { riser: { base: ['PIDF-4', 'PIDF-3'], subst: ['PIDF-1'] }, leito: { base: ['PIDF-1'], subst: [] } }

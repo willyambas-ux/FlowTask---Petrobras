@@ -167,7 +167,8 @@
 .plh-mx .nome .o{font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plh-mx .nome .s{font-size:10.5px;color:#9aa0ac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plh-mx tr.plat td{background:#f3f5f8;font-weight:700;color:#3d4757;font-size:11px;padding:5px 10px;text-align:left}
-.plh-mx td.c{min-width:64px;text-align:center;cursor:pointer;height:38px}
+.plh-mx td.c{min-width:64px;text-align:center;cursor:pointer;height:38px;padding:4px 6px !important}
+.plh-mx td.c .pl+.pl{margin-top:3px;padding-top:3px;border-top:1px dashed #edf0f3}
 .plh-mx td.c:hover{outline:2px solid #1976d2;outline-offset:-2px}
 .plh-mx td.vazio{cursor:default;background:#fff}
 .plh-mx td.vazio:hover{outline:none}
@@ -200,8 +201,12 @@
 .plh-esq-c{background:#fff;border:1px solid #e3e7ec;border-left:4px solid #27ae60;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11.5px}
 .plh-esq-c.substitui{border-left-color:#8e24aa}
 .plh-esq-c.falta{border-left-color:#E5534B}
-.plh-esq-c.semplano{border-left-color:#E5534B;border-style:dashed;border-left-style:solid;background:#fffafa}
-.plh-esq-c.foraanp{border-left-color:#c8ccd0;background:#fafbfc;opacity:.85}
+.plh-esq-c.semplano{border-left-color:#E5534B;border-style:dashed;border-left-style:solid;background:#eef0f3}
+.plh-esq-c.foraanp{border-left-color:#c8ccd0;background:#eef0f3}
+.plh-esq-pos .cab.emerso{color:#8d5a2b}
+.plh-esq-pos .cab.submerso,.plh-esq-pos .cab.riser{color:#1976d2}
+.plh-esq-pos .cab.leito{color:#0d2f5e}
+.plh-mx .pl{white-space:nowrap;line-height:1.35}
 .plh-esq-c .n{font-weight:600;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plh-esq-c .m{color:#7b8794;font-size:10.5px;margin-top:1px}
 .plh-esq-c .p{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
@@ -1144,8 +1149,19 @@ function plhRenderMatriz() {
         (x.lados ? '<i class="fas fa-left-right" style="color:#b3261e"></i>' : '') +
         (x.faltam.length ? '<i class="fas fa-square-minus" style="color:#b3261e"></i>' : '');
       var dica2 = x.n + ' componente(s) · ' + Object.keys(pers).join(', ') + (x.prox ? ' · próxima ' + plhDataBR(x.prox) : '');
-      return '<td class="c"' + onclick + ' title="' + plhE(dica2) + '"><div class="per">' + plhE(Object.keys(pers).join(' / ')) + '</div>' +
-        (x.prox ? '<div class="dt">próxima ' + plhMxData(x.prox, x.dias) + '</div>' : '') +
+      // uma linha por planejamento: periodicidade + próxima inspeção (iguais são agrupados)
+      var linhasP = {}, ordemP = [];
+      x.itens.slice().sort(function (a, b) { return (a.prox || '9') < (b.prox || '9') ? -1 : 1; }).forEach(function (i) {
+        var k = plhMxPerTxt(i.per) + '|' + (i.prox || '');
+        if (!linhasP[k]) { linhasP[k] = { per: plhMxPerTxt(i.per), prox: i.prox, dias: i.dias, n: 0 }; ordemP.push(k); }
+        linhasP[k].n++;
+      });
+      var corpoP = ordemP.map(function (k) {
+        var q = linhasP[k];
+        return '<div class="pl"><span class="per">' + plhE(q.per) + '</span>' + (q.n > 1 ? ' <span class="plh-muted" style="font-size:10px">(' + q.n + ')</span>' : '') +
+          (q.prox ? '<div class="dt">próxima ' + plhMxData(q.prox, q.dias) + '</div>' : '') + '</div>';
+      }).join('');
+      return '<td class="c"' + onclick + ' title="' + plhE(dica2) + '">' + corpoP +
         (flags ? '<div class="fl">' + flags + '</div>' : '') + '</td>';
     }).join('');
     var nomeObj = l.objId ? '<span class="plh-link" onclick="plhAbrirFicha(\'obj\',\'' + plhE(l.objId) + '\')">' + plhE(l.objeto) + '</span>' : plhE(l.objeto);
@@ -1219,15 +1235,15 @@ function plhMxCompCard(c) {
 function plhMxEsqueleto(l) {
   var e = l.esq, m = plh.data.matriz;
   var fila = e.posicoes.map(function (p) {
-    return '<div class="plh-esq-pos"><div class="cab">' + plhE(p.rotulo) + (p.esperado ? ' <span class="esp">· ' + plhE(p.esperado) + '</span>' : '') + '</div>' +
+    return '<div class="plh-esq-pos"><div class="cab ' + plhE(p.pos) + '">' + plhE(p.rotulo) + (p.esperado ? ' <span class="esp">· ' + plhE(p.esperado) + '</span>' : '') + '</div>' +
       (p.comps.length ? p.comps.map(plhMxCompCard).join('')
-        : (e.mat === 'flexivel' && p.pos === 'leito') ? '<div class="plh-esq-vazio" style="border-color:#dfe3e8;color:#9aa0ac">Sem plano no leito</div>'
+        : (e.mat === 'flexivel' && p.pos === 'leito') ? '<div class="plh-esq-vazio" style="border-color:#dfe3e8;color:#9aa0ac">Sem plano na flowline</div>'
         : '<div class="plh-esq-vazio">Nenhum componente nesta posição</div>') + '</div>';
   }).join('');
   var fora = e.fora.length ? '<div class="plh-esq-fora"><div class="plh-muted" style="font-size:11px;width:100%">' +
     (e.posicoes.length ? 'Outros componentes do duto:' : 'Componentes:') + '</div>' +
     e.fora.map(function (c) {
-      return '<div><div class="plh-muted" style="font-size:10.5px;font-weight:700;margin-bottom:3px">' + plhE(({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' })[c.pos] || c.pos) +
+      return '<div><div class="plh-muted" style="font-size:10.5px;font-weight:700;margin-bottom:3px">' + plhE(({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Flowline', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' })[c.pos] || c.pos) +
         (c.lado ? ' ' + plhE(c.lado) : '') + '</div>' + plhMxCompCard(c) + '</div>';
     }).join('') + '</div>' : '';
   var al = e.alertas.length ? '<div class="plh-esq-al"><i class="fas fa-triangle-exclamation"></i> ' + e.alertas.map(plhE).join('<br><i class="fas fa-triangle-exclamation"></i> ') + '</div>' : '';
@@ -1268,7 +1284,7 @@ function plhMxDetalhe(li, proc) {
   var posDe = function (i) {
     var c = l.esq ? l.esq.comps.filter(function (c) { return c.itens.some(function (t) { return t.planej === i.planej; }); })[0] : null;
     if (!c) return '';
-    var r = ({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' })[c.pos] || '';
+    var r = ({ emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Flowline', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' })[c.pos] || '';
     return r + (c.lado ? ' ' + c.lado : '') + (c.subst ? ' · ' + c.subst : '');
   };
   var linhas = x.itens.map(function (i) {
