@@ -351,7 +351,7 @@
       <span>Próxima inspeção: <b class="plh-dt-venc">vencida</b> · <b class="plh-dt-12">vence em até 12 meses</b> · no prazo</span>
       <span><i class="q" style="background:repeating-linear-gradient(45deg,#fff,#fff 3px,#fdecea 3px,#fdecea 6px)"></i> Falta pela regra</span>
       <span><i class="fas fa-not-equal" style="color:#8e24aa"></i> Periodicidades diferentes</span>
-      <span><i class="fas fa-ruler" style="color:#e67e22"></i> Fora do padrão</span>
+      <span><i class="fas fa-ruler" style="color:#e67e22"></i> Periodicidade maior que a referência</span>
       <span><span class="plh-sopx">só a próxima</span> "Vale para: Próximo" no GIDES (a periodicidade vale só para a próxima inspeção)</span>
     </div>
     <div class="plh-section">
@@ -1053,7 +1053,7 @@ var PLH_MX_KPIS = [
   { k: 'semPlano', t: 'Dutos sem nenhum planejamento', i: 'fa-circle-xmark', c: '#b3261e' },
   { k: 'faltando', t: 'Procedimento exigido faltando', i: 'fa-square-minus', c: '#b3261e' },
   { k: 'posicao', t: 'Posição do duto vazia ou componente sem lado', i: 'fa-diagram-next', c: '#b3261e' },
-  { k: 'foraPadrao', t: 'Periodicidade fora do padrão', i: 'fa-ruler', c: '#e67e22' },
+  { k: 'foraPadrao', t: 'Periodicidade maior que a referência', i: 'fa-ruler', c: '#e67e22' },
   { k: 'divergente', t: 'Periodicidades diferentes no mesmo duto', i: 'fa-not-equal', c: '#8e24aa' },
   { k: 'valeProximo', t: '"Vale para: Próximo" (só a próxima)', i: 'fa-1', c: '#1976d2' }
 ];
@@ -1094,8 +1094,11 @@ function plhRenderMatriz() {
   var regrasLink = m.regrasGid !== null && m.regrasGid !== undefined
     ? '<span class="plh-link" onclick="plhAbrirPlanilha(' + Number(m.regrasGid) + ')">aba PLH_Regras</span>' : 'aba PLH_Regras';
   document.getElementById('plhMxNota').innerHTML = '<i class="fas fa-circle-info" style="color:#1976d2;margin-top:2px"></i><span>' +
-    'Cada célula mostra a periodicidade cadastrada no GIDES; clique para ver os componentes. "Falta" e "fora do padrão" comparam com a ' + regrasLink +
-    ', preenchida com o mais comum hoje: corrija lá o que não for regra e clique em Atualizar dados. ' +
+    'Cada célula mostra a periodicidade cadastrada no GIDES; clique para ver os componentes. ' +
+    'A régua laranja marca periodicidade <b>maior que a referência</b> da ' +
+    (m.refGid !== null && m.refGid !== undefined ? '<span class="plh-link" onclick="plhAbrirPlanilha(' + Number(m.refGid) + ')">aba PLH_Periodicidade</span>' : 'aba PLH_Periodicidade') +
+    ' (procedimento × fluido, ex.: N-1487). "Falta" compara com a ' + regrasLink + '. Depois de mudar uma aba, clique em Atualizar dados. ' +
+    (m.refErro ? '<b style="color:#b3261e">' + plhE(m.refErro) + '</b> ' : '') +
     ((plh.data.fontes || []).some(function (f) { return f.base === 'Componentes' && f.ok && f.linhas; })
       ? 'Os componentes do CIDR (aba SRC_Componentes) completam o esqueleto: os que não têm plano aparecem tracejados em vermelho.'
       : 'Para ver também os componentes sem nenhum plano, cole o export de componentes do CIDR na aba SRC_Componentes.') +
@@ -1222,6 +1225,8 @@ function plhMxCompCard(c) {
   var procs = c.itens.map(function (i) {
     return '<span title="' + plhE(i.proc + ' · ' + i.per + ' · última ' + plhDataBR(i.ult) + ' · próxima ' + plhDataBR(i.prox) + (i.vale ? ' · vale para ' + i.vale : '')) + '">' +
       plhE(i.proc) + ' · ' + plhE(plhMxPerTxt(i.per)) + (i.prox ? ' · próxima ' + plhMxData(i.prox, i.dias) : '') +
+      (i.foraPadrao && i.padrao ? '<br><span style="color:#c26a00">acima da referência: ' + plhE(i.padrao) + ' meses (' + plhE(i.padraoFonte) + ')</span>' : '') +
+      (i.abaixoRef && i.padrao ? '<br><span style="color:#7b8794;font-weight:400">referência ' + plhE(i.padrao) + ' meses (' + plhE(i.padraoFonte) + '): mais frequente</span>' : '') +
       (/pr[oó]xim/i.test(i.vale || '') ? ' <span class="plh-sopx">só a próxima</span>' : '') + '</span>';
   }).join('');
   var num = function (v) { return String(Math.round(v * 1000) / 1000).replace('.', ','); };
@@ -1409,7 +1414,8 @@ function plhMxDetalhe(li, proc) {
     return '<tr><td>' + plhE(i.comp) + '<div class="plh-muted" style="font-size:11px">' + plhE(i.tipo) + ' · planej. ' + plhE(i.planej) + '</div>' +
       (pos ? '<div style="font-size:11px;color:#8e24aa">' + plhE(pos) + '</div>' : '') + '</td>' +
       '<td><b>' + plhE(i.per) + '</b>' + (i.emDias ? ' <span class="plh-muted">(≈' + String(i.meses).replace('.', ',') + ' meses)</span>' : '') +
-      (i.foraPadrao ? '<div style="color:#e67e22;font-size:11px">padrão ' + i.padrao + ' meses</div>' : '') +
+      (i.padrao ? '<div style="font-size:11px;color:' + (i.foraPadrao ? '#c26a00' : '#7b8794') + '">referência ' + i.padrao + ' meses' + (i.padraoFonte ? ' (' + plhE(i.padraoFonte) + ')' : '') +
+        (i.foraPadrao ? ': cadastrada acima' : i.abaixoRef ? ': cadastrada abaixo (mais frequente)' : ': igual') + '</div>' : '') +
       (i.semRegra ? '<div class="plh-muted" style="font-size:11px">sem regra para ' + plhE(i.tipo) + '</div>' : '') + '</td>' +
       '<td>' + plhE(i.vale) + '</td><td>' + plhDataBR(i.ult) + '</td><td>' + plhDataBR(i.prox) + '</td><td>' + plhStatusChip(i.status) + '</td></tr>';
   }).join('');

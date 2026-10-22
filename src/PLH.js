@@ -1371,6 +1371,7 @@ function plhPeriodo_(txt) {
 
 function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
   var regras = plhLerRegras_(ss);
+  var refPer = plhLerPeriodicidade_(ss);
   var objPorId = {};
   objetos.forEach(function (o) { objPorId[o.id] = o; });
   var icpiPor = {};
@@ -1420,12 +1421,17 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
     procsVistos[proc] = true;
     var per = plhPeriodo_(p.per);
     var regra = regraPor[plhNorm_(p.tipoComp) + '|' + proc];
+    var ref = plhRefPeriodicidade_(refPer, proc, objPorId[p.objId]);
     var item = {
       proc: proc, comp: p.comp, compId: p.compId, tipo: p.tipoComp, planej: p.planej, per: per.txt, meses: per.meses,
       emDias: per.dias !== null, vale: p.vale, ult: p.ult, prox: p.prox, dias: p.dias, status: p.status,
-      padrao: regra ? regra.padrao : null, semRegra: !regra
+      padrao: ref ? ref.meses : null, padraoFonte: ref ? ref.fonte : '',
+      semRegra: !regra
     };
-    item.foraPadrao = !!(regra && regra.padrao && per.meses !== null && Math.abs(per.meses - regra.padrao) > 0.5);
+    // Referência = aba PLH_Periodicidade (procedimento × fluido). Fora = periodicidade MAIOR que a referência
+    // (inspeção mais espaçada que a norma); menor é mais conservador e só fica registrado. Sem referência, não compara.
+    item.foraPadrao = !!(ref && per.meses !== null && per.meses > ref.meses + 0.5);
+    item.abaixoRef = !!(ref && per.meses !== null && per.meses < ref.meses - 0.5);
     (l.cel[proc] = l.cel[proc] || { itens: [] }).itens.push(item);
     // flexível: o mesmo componente aparece uma vez por ponta (Local Instalação / Tramo diferentes)
     var chaveC = (p.compId || p.comp) + (p.local ? '|' + p.local : '');
@@ -1525,7 +1531,7 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
   });
   Object.keys(procsVistos).sort().forEach(function (p) { if (!usados[p]) colunas.push({ proc: p, grupo: 'Outros' }); });
 
-  return { colunas: colunas, linhas: lista, resumo: resumo, compGid: comps.gid, compErro: comps.erro || '', limiteEmerso: comps.limite,
+  return { colunas: colunas, linhas: lista, resumo: resumo, refGid: refPer.gid, refErro: refPer.erro || '', refLinhas: refPer.lista.length, compGid: comps.gid, compErro: comps.erro || '', limiteEmerso: comps.limite,
            regras: regras.lista, regrasGid: regras.gid, regrasCriada: regras.criada, regrasErro: regras.erro || '' };
 }
 
@@ -1682,7 +1688,8 @@ function plhEsqueleto_(l, obj, comps, cidr) {
       esp: dc.esp === undefined ? null : dc.esp, dn: dc.dn === undefined ? null : dc.dn, vida: dc.vida === undefined ? null : dc.vida,
       anp: dc.anp || c.anp || '', sitComp: dc.situacao || c.situacao || '',
       esperado: esp ? esp.base.join(' + ') : '',
-      itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej }; })
+      itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, meses: i.meses, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej,
+        padrao: i.padrao, padraoFonte: i.padraoFonte, foraPadrao: i.foraPadrao, abaixoRef: !!i.abaixoRef }; })
     });
   });
 
@@ -1780,4 +1787,79 @@ function plhGravarComponentes_(comps, linhas) {
     var ini = Math.max(comps.sh.getLastRow(), 1) + 1;
     comps.sh.getRange(ini, 1, novas.length, PLH_COMP_COLS.length).setValues(novas);
   } catch (e) { comps.erro = 'Não foi possível gravar na aba PLH_Componentes: ' + e.message; }
+}
+
+
+/* ============================================================================
+ *  PERIODICIDADE DE REFERÊNCIA (aba PLH_Periodicidade, editável pelo usuário)
+ *  Procedimento × fluido → periodicidade em meses e a referência (ex.: N-1487).
+ *  Fluido do duto vem do CIDR: ÁGUA → "Água"; ÓLEO/GÁS → "Óleo e gás"; linha "Todos" vale para qualquer fluido.
+ * ==========================================================================*/
+var PLH_ABA_PERIOD = 'PLH_Periodicidade';
+var PLH_PERIOD_COLS = ['Procedimento', 'Fluido', 'Periodicidade (meses)', 'Referência', 'Observação'];
+var PLH_PERIOD_PADRAO = [
+  ['PIDR-4', 'Óleo e gás', 36, 'N-1487', 'Região 4 (emersa): 3 anos'],
+  ['PIDR-4', 'Água', 60, 'N-1487', 'Região 4 (emersa): 5 anos'],
+  ['PIDF-4', 'Óleo e gás', 36, 'N-1487', 'Região 4 (emersa): 3 anos'],
+  ['PIDF-4', 'Água', 60, 'N-1487', 'Região 4 (emersa): 5 anos'],
+  ['PIDR-3', 'Óleo e gás', 72, 'N-1487', 'Região 3: 6 anos'],
+  ['PIDR-3', 'Água', 96, 'N-1487', 'Região 3: 8 anos'],
+  ['PIDF-3', 'Óleo e gás', 72, 'N-1487', 'Região 3: 6 anos'],
+  ['PIDF-3', 'Água', 96, 'N-1487', 'Região 3: 8 anos'],
+  ['PIDR-1', 'Óleo e gás', 72, 'N-1487', 'Região 1: 6 anos'],
+  ['PIDR-1', 'Água', 96, 'N-1487', 'Região 1: 8 anos'],
+  ['PIDF-1', 'Óleo e gás', 72, 'N-1487', 'Região 1: 6 anos'],
+  ['PIDF-1', 'Água', 96, 'N-1487', 'Região 1: 8 anos'],
+  ['PIDR-0', 'Óleo e gás', 72, 'N-1487', '6 anos'],
+  ['PIDR-0', 'Água', 96, 'N-1487', '8 anos']
+];
+
+function plhFluidoChave_(t) {
+  var n = plhNorm_(t);
+  if (!n || /todos|qualquer/.test(n)) return 'todos';
+  if (/agua|aquaduto/.test(n)) return 'agua';
+  if (/oleo|gas|petroleo/.test(n)) return 'oleogas';
+  return n;
+}
+
+function plhLerPeriodicidade_(ss) {
+  var res = { gid: null, lista: [], por: {}, erro: '' };
+  var sh = ss.getSheetByName(PLH_ABA_PERIOD);
+  if (!sh) {
+    try {
+      sh = ss.insertSheet(PLH_ABA_PERIOD);
+      sh.getRange(1, 1, 1, PLH_PERIOD_COLS.length).setValues([PLH_PERIOD_COLS])
+        .setFontWeight('bold').setBackground('#2c3e50').setFontColor('#ffffff');
+      sh.getRange(2, 1, PLH_PERIOD_PADRAO.length, PLH_PERIOD_COLS.length).setValues(PLH_PERIOD_PADRAO);
+      sh.setFrozenRows(1);
+      sh.setTabColor('#00a085');
+    } catch (e) {
+      res.erro = 'Não foi possível criar a aba PLH_Periodicidade: ' + e.message;
+      PLH_PERIOD_PADRAO.forEach(function (l) { plhAddRef_(res, l); });
+      return res;
+    }
+  }
+  res.gid = sh.getSheetId();
+  var vals = sh.getDataRange().getValues();
+  var cab = (vals[0] || []).map(plhNorm_);
+  var c = PLH_PERIOD_COLS.map(function (n) { return cab.indexOf(plhNorm_(n)); });
+  for (var i = 1; i < vals.length; i++) {
+    var l = c.map(function (k) { return k < 0 ? '' : vals[i][k]; });
+    if (!plhTxt_(l[0]) || plhNumC_(l[2]) === null) continue;
+    plhAddRef_(res, l);
+  }
+  return res;
+}
+function plhAddRef_(res, l) {
+  var r = { proc: plhTxt_(l[0]).toUpperCase(), fluido: plhTxt_(l[1]) || 'Todos', meses: plhNumC_(l[2]),
+            fonte: plhTxt_(l[3]) || 'PLH_Periodicidade', obs: plhTxt_(l[4]) };
+  res.lista.push(r);
+  res.por[r.proc + '|' + plhFluidoChave_(r.fluido)] = r;
+}
+/** referência para o procedimento no fluido do duto; sem fluido conhecido, só a linha "Todos" */
+function plhRefPeriodicidade_(refPer, proc, obj) {
+  if (!refPer || !refPer.lista.length) return null;
+  var f = obj ? plhFluidoChave_(obj.fluido || obj.funcao) : 'todos';
+  if (f === 'todos' || f === '') return refPer.por[proc + '|todos'] || null;
+  return refPer.por[proc + '|' + f] || refPer.por[proc + '|todos'] || null;
 }
