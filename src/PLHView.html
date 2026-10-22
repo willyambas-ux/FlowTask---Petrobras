@@ -138,6 +138,7 @@
 .plh-c.atual .plh-dot{background:#1976d2;border-color:#1976d2;box-shadow:0 0 0 4px #d6e7fb}
 .plh-c.alerta .plh-dot{background:#E5534B;border-color:#E5534B;color:#fff;box-shadow:0 0 0 4px #fbdedc}
 .plh-c.na .plh-dot{border-style:dashed;background:#f5f7fa;color:#c0c6cf}
+.plh-c.prov .plh-dot{background:#fff3cd;border-color:#e0a800;color:#a07400;font-weight:700}
 .plh-c.sem .plh-dot{border-style:dashed;border-color:#e0b252;color:#b07d10;background:#fffaf0}
 .plh-mini{border:1px solid #e0e4ea;background:#f8f9fa;color:#5f6b7c;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:11px}
 .plh-mini:hover{background:#e6faf6;color:#00a085;border-color:#b2ece0}
@@ -234,6 +235,7 @@
       <span><i class="b" style="background:#1976d2;border-color:#1976d2"></i> Parado aqui</span>
       <span><i class="b" style="background:#E5534B;border-color:#E5534B"></i> Parado e atrasado / replanejar</span>
       <span><i class="b"></i> Ainda não chegou</span>
+      <span><i class="b" style="background:#fff3cd;border-color:#e0a800"></i> Provável (PLANCOR genérico)</span>
       <span><i class="b" style="border-style:dashed;border-color:#e0b252;background:#fffaf0"></i> Sem fonte de dados</span>
       <span><i class="b" style="border-style:dashed;background:#f5f7fa"></i> Não se aplica</span>
     </div>
@@ -436,7 +438,8 @@ function plhStatusChip(s) {
 function plhRenderDash() {
   var d = plh.data;
   // Banner: data das bases
-  var datas = d.fontes.map(function (f) { return f.atualizado ? new Date(f.atualizado) : null; });
+  var fontesIdade = d.fontes.filter(function (f) { return !f.semIdade && !(f.opcional && !f.ok); });
+  var datas = fontesIdade.map(function (f) { return f.atualizado ? new Date(f.atualizado) : null; });
   var conhecidas = datas.filter(Boolean);
   var maisAntiga = conhecidas.length ? new Date(Math.min.apply(null, conhecidas)) : null;
   var dias = maisAntiga ? Math.floor((Date.now() - maisAntiga) / 86400000) : null;
@@ -445,7 +448,7 @@ function plhRenderDash() {
   var aviso = '';
   if (falhas.length) aviso = '<span class="plh-warn"><i class="fas fa-triangle-exclamation"></i> ' + falhas.length + ' base(s) com problema, veja "Fontes de dados"</span>';
   else if (avisos.length) aviso = '<span class="plh-warn"><i class="fas fa-triangle-exclamation"></i> ' + plhE(avisos[0].base) + ': colagem com #####, veja "Fontes de dados"</span>';
-  else if (dias === null || conhecidas.length < d.fontes.length) aviso = '<span class="plh-warn">Data de colagem desconhecida em alguma base (é registrada a partir da próxima colagem)</span>';
+  else if (dias === null || conhecidas.length < fontesIdade.length) aviso = '<span class="plh-warn">Data de colagem desconhecida em alguma base (é registrada a partir da próxima colagem)</span>';
   else if (dias > 7) aviso = '<span class="plh-warn"><i class="fas fa-clock"></i> Base mais antiga colada há ' + dias + ' dias</span>';
   document.getElementById('plhBanner').innerHTML =
     '<i class="fas fa-water" style="color:#1976d2"></i> <span>Situação calculada em <strong>' + plhE(d.geradoEm) + '</strong>' +
@@ -807,7 +810,7 @@ function plhRenderFluxo() {
     }
     if (fpr && !ignorarPlatProc && x.proc !== fpr) return false;
     if (!noPeriodo(x)) return false;
-    if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep].join(' ').toLowerCase().indexOf(q) < 0) return false;
+    if (q && [x.objeto, x.comp, x.proc, x.os, x.statusOS, x.patec, x.situacao, x.uep, x.etapas[1] && x.etapas[1].info].join(' ').toLowerCase().indexOf(q) < 0) return false;
     return true;
   };
   var base = (d.fluxo || []).filter(function (x) { return passa(x, false); });
@@ -818,24 +821,37 @@ function plhRenderFluxo() {
   var cont = [], atras = [];
   for (var i = 0; i <= 8; i++) { cont[i] = 0; atras[i] = 0; }
   base.forEach(function (x) { cont[x.etapaAtual]++; if (x.alerta) atras[x.etapaAtual]++; });
+  var pcNao = base.filter(function (x) { return x.plancor === 'nao'; }).length;
+  var pcProv = base.filter(function (x) { return x.plancor === 'prov'; }).length;
+  var pcCarregado = d.plancor && d.plancor.carregado;
   var nomes = E.concat(['Concluído']);
   document.getElementById('plhFunil').innerHTML = nomes.map(function (n, i) {
     var cls = 'plh-funil-etapa' + (plhFx.etapa === i ? ' ativo' : '') + (cont[i] ? '' : ' zero') + (i === 8 ? ' fim' : '');
-    var dica = i === 1 ? 'Ainda sem fonte do PLANCOR' : 'Clique para ver só as que estão nesta etapa';
+    if (i === 1) {
+      // PLANCOR não é onde a inspeção "para": o card mostra quantas estão fora (e prováveis)
+      var cls1 = 'plh-funil-etapa' + (plhFx.etapa === 1 ? ' ativo' : '') + (pcNao + pcProv ? '' : ' zero');
+      var dica1 = !pcCarregado ? 'Cole a última implantação do PLANCOR na aba SRC_PLANCOR'
+        : 'Fora do PLANCOR (vermelho) e prováveis (linha genérica). Clique para ver só essas';
+      return '<div class="' + cls1 + '" onclick="plhFxFiltrarEtapa(1)" title="' + plhE(dica1) + '"><span class="num">2</span>' +
+        '<div class="n">' + (pcCarregado ? pcNao : '–') + '</div><div class="t">' + (pcCarregado ? 'Fora do PLANCOR' : plhE(n)) + '</div>' +
+        '<div class="a" style="color:#a07400">' + (pcProv ? pcProv + ' provável' + (pcProv > 1 ? 'eis' : '') : '') + '</div></div>';
+    }
+    var dica = 'Clique para ver só as que estão nesta etapa';
     return '<div class="' + cls + '" onclick="plhFxFiltrarEtapa(' + i + ')" title="' + plhE(dica) + '"><span class="num">' + (i + 1) + '</span>' +
-      '<div class="n">' + (i === 1 ? '–' : cont[i]) + '</div><div class="t">' + plhE(n) + '</div>' +
+      '<div class="n">' + cont[i] + '</div><div class="t">' + plhE(n) + '</div>' +
       '<div class="a">' + (atras[i] ? atras[i] + ' atrasada' + (atras[i] > 1 ? 's' : '') : '') + '</div></div>';
   }).join('');
 
   var lista = base.filter(function (x) {
     if (plhFx.grupo) return PLH_GRUPOS[plhFx.grupo](x);
+    if (plhFx.etapa === 1) return x.plancor === 'nao' || x.plancor === 'prov';
     if (plhFx.etapa !== null) return x.etapaAtual === plhFx.etapa;
     return concl || x.etapaAtual < 8;
   });
   var rotGrupo = { fazer: 'a fazer', barco: 'aguardando barco', patec: 'em PATEC' };
   document.getElementById('plhFxCount').textContent = lista.length + ' inspeç' + (lista.length === 1 ? 'ão' : 'ões') +
-    (plhFx.grupo ? ' ' + rotGrupo[plhFx.grupo] : plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
-  var icone = { ok: '<i class="fas fa-check"></i>', atual: '', alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '' };
+    (plhFx.grupo ? ' ' + rotGrupo[plhFx.grupo] : plhFx.etapa === 1 ? ' fora do PLANCOR ou prováveis' : plhFx.etapa !== null ? ' em "' + nomes[plhFx.etapa] + '"' : '');
+  var icone = { ok: '<i class="fas fa-check"></i>', atual: '', alerta: '<i class="fas fa-exclamation"></i>', na: '–', sem: '?', pend: '', prov: '~' };
   var linhas = lista.map(function (x) {
     var idx = d.fluxo.indexOf(x);
     var celulas = x.etapas.map(function (e, i) {
@@ -991,7 +1007,7 @@ function plhPrepararFiltros() {
     el.value = atual;
   };
   opt('plhFPlat', 'Todas as plataformas', d.plataformas);
-  opt('plhFOrigem', 'Todas as origens', ['Inspeção de duto', 'RT', 'PATEC', 'Jaqueta']);
+  opt('plhFOrigem', 'Todas as origens', ['Inspeção de duto', 'RT', 'PATEC', 'Jaqueta', 'PLANCOR']);
   opt('plhFUrg', 'Todas as urgências', PLH_URG);
   var unicos = function (arr) { return arr.filter(function (v, i) { return v && arr.indexOf(v) === i; }).sort(); };
   var platsFx = [];

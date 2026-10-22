@@ -255,6 +255,48 @@ function plhLerICPI_(ss) {
   return { info: info, rows: rows };
 }
 
+/** SRC_PLANCOR (opcional): planilha de insumos da última implantação, colada como está.
+ *  Lida pelo nome do cabeçalho. Só interessa saber se cada demanda está ou não no PLANCOR. */
+var PLH_ABA_PLANCOR = 'SRC_PLANCOR';
+function plhLerPlancor_(ss) {
+  var props = PropertiesService.getDocumentProperties();
+  var info = { base: 'PLANCOR', sistema: 'Insumos PLANCOR', aba: PLH_ABA_PLANCOR, linhas: 0, ok: false, erro: '',
+               opcional: true, semIdade: true, // muda só a cada implantação: fica fora do aviso de "base antiga"
+               atualizado: props.getProperty('PLH_ATUALIZADO_' + PLH_ABA_PLANCOR) || '' };
+  var sh = ss.getSheetByName(PLH_ABA_PLANCOR);
+  if (!sh) { info.erro = 'Aba não encontrada (opcional)'; return { info: info, rows: [] }; }
+  info.gid = sh.getSheetId();
+  var vals = sh.getDataRange().getValues();
+  // o cabeçalho pode não estar na linha 1 (texto colado antes): procura a linha com "Tarefa" e "UEP"
+  var h = -1;
+  for (var i = 0; i < Math.min(vals.length, 20); i++) {
+    var n = vals[i].map(plhNorm_);
+    if (n.indexOf('tarefa') >= 0 && n.indexOf('uep') >= 0) { h = i; break; }
+  }
+  if (h < 0) { info.erro = 'Cabeçalho não encontrado (Tarefa, UEP, Duto, Observações)'; return { info: info, rows: [] }; }
+  var cab = vals[h].map(plhNorm_);
+  var col = function () {
+    for (var k = 0; k < arguments.length; k++) { var c = cab.indexOf(arguments[k]); if (c >= 0) return c; }
+    return -1;
+  };
+  var ix = { tarefa: col('tarefa'), uep: col('uep'), duto: col('duto'), equip: col('equipamento'),
+             obs: col('observacoes', 'observacao'), ini: col('data inicio tarefa'), fim: col('data fim tarefa'),
+             ref: col('numero referencia insumo'), projeto: col('projeto') };
+  var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
+  var rows = [];
+  for (var j = h + 1; j < vals.length; j++) {
+    var r = vals[j];
+    var tarefa = plhTxt_(g(r, 'tarefa'));
+    if (!tarefa || plhNorm_(tarefa) === 'tarefa') continue;
+    rows.push({ tarefa: tarefa, uep: plhTxt_(g(r, 'uep')), duto: plhTxt_(g(r, 'duto')), equip: plhTxt_(g(r, 'equip')),
+                obs: plhTxt_(g(r, 'obs')), ini: plhData_(g(r, 'ini')), fim: plhData_(g(r, 'fim')),
+                ref: plhTxt_(g(r, 'ref')), projeto: plhTxt_(g(r, 'projeto')), linha: j + 1 });
+  }
+  info.ok = true;
+  info.linhas = rows.length;
+  return { info: info, rows: rows };
+}
+
 /* ---------- regras de negócio ---------- */
 
 function plhStatusPrazo_(dias, janela) {
@@ -300,6 +342,7 @@ function getPlhData() {
   var jq = plhLerJaquetas_(ss);
   fontes.push(jq.info);
   var icpi = plhLerICPI_(ss);
+  var plancor = plhLerPlancor_(ss);
 
   /* --- Planejamento --- */
   var plan = [];
@@ -462,6 +505,11 @@ function getPlhData() {
 
   /* --- Fluxo das inspeções: demanda → PLANCOR → OS → execução → relatório no ISUB → PATEC --- */
   var fluxo = plhMontarFluxo_(plan, src.Historico, icpi.rows, idPorNome, hoje);
+  var nomesObj = {};
+  plan.forEach(function (p) { nomesObj[plhNorm_(p.objeto)] = p.objeto; });
+  objetos.forEach(function (o) { nomesObj[plhNorm_(o.nome)] = o.nome; });
+  var plancorRes = plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje);
+  if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
 
   /* --- Pendências (lista de trabalho única) --- */
@@ -478,7 +526,7 @@ function getPlhData() {
     if (['Vencida', 'Vence em 30 dias', 'Vence em 90 dias'].indexOf(r.status) < 0) return;
     push({ origem: 'RT', plat: r.plat, objId: r.objId, objeto: r.objeto, comp: r.comp,
            atividade: 'RT ' + r.rt + ' · ' + r.cat, descr: r.descr, prazo: r.venc, dias: r.dias,
-           situacao: r.status, ref: 'Nota SAP ' + (r.nota || '-') + ' · Prioridade ' + (r.prio || '-'),
+           situacao: r.status, ref: 'Nota SAP ' + (r.nota || '-') + ' · Prioridade ' + (r.prio || '-') + (r.plancor ? ' · No PLANCOR (' + r.plancor + ')' : ''),
            chave: 'RT ' + r.rt });
   });
   patec.forEach(function (h) {
@@ -493,8 +541,24 @@ function getPlhData() {
            atividade: 'Inspeção ' + j.nivel,
            descr: [j.juntas ? 'Juntas críticas: ' + j.juntas : '', j.obs, j.acoes ? 'Ações: ' + j.acoes : ''].filter(String).join(' · '),
            prazo: j.prox, dias: j.dias, situacao: j.status,
-           ref: ['Plano ' + (j.plano || '-'), j.proxOS ? 'Próx. OS ' + j.proxOS : '', j.acesso].filter(String).join(' · '),
+           ref: ['Plano ' + (j.plano || '-'), j.proxOS ? 'Próx. OS ' + j.proxOS : '', j.acesso, j.plancor ? 'No PLANCOR (' + j.plancor + ')' : ''].filter(String).join(' · '),
            chave: 'JAQ ' + j.plat + ' ' + j.nivel });
+  });
+  fluxo.forEach(function (x) {
+    if (x.tipo !== 'demanda' || x.plancor !== 'nao' || x.dias === null || x.dias > 365) return;
+    push({ origem: 'PLANCOR', plat: x.plat, objId: x.objId, objeto: x.objeto, comp: x.comp,
+           atividade: x.proc + ' fora do PLANCOR',
+           descr: 'Demanda que vence em ' + plhIsoBR_(x.prazo) + ' não foi encontrada na última implantação do PLANCOR',
+           prazo: x.prazo, dias: x.dias, situacao: 'Fora do PLANCOR', ref: 'Planejamento ' + (x.planej || '-'),
+           chave: 'PLANCOR ' + x.planej });
+  });
+  jaquetas.forEach(function (j) {
+    if (!j.foraPlancor) return;
+    push({ origem: 'PLANCOR', plat: j.plat, objId: '', objeto: 'Jaqueta ' + j.plataforma, comp: j.nivel,
+           atividade: 'Inspeção ' + j.nivel + ' fora do PLANCOR',
+           descr: 'Próxima inspeção em ' + plhIsoBR_(j.prox) + ' e nenhuma linha da jaqueta com esse nível no PLANCOR',
+           prazo: j.prox, dias: j.dias, situacao: 'Fora do PLANCOR', ref: 'Plano ' + (j.plano || '-'),
+           chave: 'PLANCOR JAQ ' + j.plat + ' ' + j.nivel });
   });
   pend.sort(function (a, b) {
     if (a.urg !== b.urg) return a.urg < b.urg ? -1 : 1;
@@ -526,14 +590,20 @@ function getPlhData() {
     if (j.status === 'Sem plano cadastrado') valid.push({ objeto: nome, problema: 'Sem plano de inspeção na aba Jaquetas' });
   });
 
+  plancorRes.semDemanda.forEach(function (l) {
+    valid.push({ objeto: l.objeto, problema: 'No PLANCOR (insumo ' + (l.ref || '-') + ', ' + l.proc + (l.lado ? ' lado ' + l.lado : '') +
+      ', início ' + plhIsoBR_(l.ini) + ') sem demanda correspondente no GIDES' });
+  });
+
   /* --- Plataformas --- */
   var plats = {};
   objetos.forEach(function (o) { if (o.plat) plats[o.plat] = true; });
   jaquetas.forEach(function (j) { if (j.plat) plats[j.plat] = true; });
 
   fontes.push(icpi.info);
+  fontes.push(plancor.info);
   fontes.forEach(function (f) {
-    if (f.base === 'ICPI (OS)') return;
+    if (f.base === 'ICPI (OS)' || f.base === 'PLANCOR') return;
     f.linhas = f.base === 'RT' ? rtTotal : f.base === 'Planejamento' ? plan.length
       : f.base === 'Historico' ? src.Historico.length : f.base === 'Interligacoes' ? src.Interligacoes.length
       : jq.rows.length;
@@ -545,7 +615,7 @@ function getPlhData() {
     janela: PLH_JANELA_PLANEJ,
     fontes: fontes, plataformas: Object.keys(plats).sort(),
     objetos: objetos, plan: plan, rts: rts, patec: patec, jaquetas: jaquetas,
-    pend: pend, valid: valid, fluxo: fluxo, icpi: icpiPainel,
+    pend: pend, valid: valid, fluxo: fluxo, icpi: icpiPainel, plancor: plancorRes,
     etapasFluxo: PLH_ETAPAS
   };
 }
@@ -713,6 +783,187 @@ function plhMontarFluxo_(plan, historico, icpiRows, idPorNome, hoje) {
     return da - db;
   });
   return fluxo;
+}
+
+
+/* ============================================================================
+ *  PLANCOR (etapa 2 do fluxo): a demanda está na última implantação?
+ *  - ok    : linha que identifica o duto (coluna Duto/Observações, com o lado) + procedimento
+ *  - prov  : linha genérica ("Duto rígido de produção de óleo") do mesmo campo + procedimento, perto da data
+ *  - nao   : nada encontrado
+ *  - na    : inspeção emersa (PIDR-4 / PIDF-4), feita pelo inspetor, não vai para o PLANCOR
+ *  O PLANCOR registra a plataforma dona do projeto (PXA01), não o lado: comparação por campo (PXA, PAT...).
+ * ==========================================================================*/
+var PLH_PLANCOR_NA = /^(PID[RF]-4\b|FAIXA|EXT_)/i; // emersa, faixa em terra, extensão de vida: sem barco
+var PLH_PLANCOR_JANELA_ANTES = 365;  // dias: linha do PLANCOR até 1 ano antes do vencimento
+var PLH_PLANCOR_JANELA_DEPOIS = 180; // ... ou até 6 meses depois (replanejada)
+
+function plhCampo_(p) { var m = plhPlataforma_(p).match(/^[A-Z]+/); return m ? m[0] : ''; }
+
+function plhProcPlancor_(tarefa, obs) {
+  var s = (tarefa + ' ' + obs).toUpperCase();
+  var m = s.match(/PI-?(PLEM|ANM)(-PE)?\b/);
+  if (m) return 'PI-' + m[1] + (m[2] || '');
+  m = s.match(/PID([RF])-?(\d+)/);
+  if (m) return 'PID' + m[1] + '-' + m[2];
+  if (plhTxt_(obs)) return ''; // descrição própria sem procedimento (ex.: monitoramento de válvulas da ANM)
+  if (/PLEM|PLAEM/.test(s)) return 'PI-PLEM';
+  if (/ANM/.test(s)) return 'PI-ANM';
+  return '';
+}
+
+function plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje) {
+  var res = { carregado: plancor.info.ok && plancor.rows.length > 0, atualizado: plancor.info.atualizado || '',
+              gid: plancor.info.gid, linhas: plancor.rows.length, suas: 0, ok: 0, prov: 0, nao: 0, na: 0,
+              rtsNoPlancor: 0, jaqNoPlancor: 0, semDemanda: [] };
+  var demandas = fluxo.filter(function (x) { return x.tipo === 'demanda'; });
+  var dBR = function (d) { return d ? Utilities.formatDate(d, ssTimeZone(), 'dd/MM/yyyy') : ''; };
+  var etapa = function (estado, info) { return { estado: estado, data: '', info: info }; };
+
+  // campos que são nossos (para ignorar as linhas de outros ativos)
+  var campos = {};
+  demandas.forEach(function (x) { (x.locais || []).concat([x.plat]).forEach(function (p) { var c = plhCampo_(p); if (c) campos[c] = true; }); });
+  jaquetas.forEach(function (j) { var c = plhCampo_(j.plat); if (c) campos[c] = true; });
+  rts.forEach(function (r) { var c = plhCampo_(r.plat); if (c) campos[c] = true; });
+
+  var nomes = Object.keys(nomesObj).sort(function (a, b) { return b.length - a.length; });
+  var linhas = [];
+  plancor.rows.forEach(function (r) {
+    var campo = plhCampo_(r.uep);
+    if (!campos[campo]) return;
+    res.suas++;
+    var dutoN = plhNorm_(r.duto.replace(/\s*-\s*lado\s+.*$/i, ''));
+    var objeto = nomesObj[dutoN] || '';
+    if (!objeto) {
+      var txt = ' ' + plhNorm_(r.duto + ' ' + r.equip + ' ' + r.obs) + ' ';
+      for (var i = 0; i < nomes.length; i++) if (txt.indexOf(nomes[i]) >= 0) { objeto = nomesObj[nomes[i]]; break; }
+    }
+    var lado = (r.duto + ' ' + r.obs).match(/lado\s+([A-Z]+\s*-?\s*\d+)/i);
+    var anm = (r.duto + ' ' + r.equip).match(/\bANM\s+([A-Z]{2,3})\s*-?\s*0*(\d+)/i);
+    var rt = r.obs.match(/\bRT\s*[-:nº°.]*\s*(\d{4,6})\b/i);
+    linhas.push({ r: r, campo: campo, objeto: objeto, lado: lado ? plhPlataforma_(lado[1]) : '',
+                  proc: plhProcPlancor_(r.tarefa, r.obs), rt: rt ? rt[1] : '',
+                  anm: anm ? new RegExp('\\b' + anm[1].toUpperCase() + '-?0*' + anm[2] + '\\b') : null,
+                  jaqueta: /jaqueta/i.test(r.tarefa + ' ' + r.duto), usada: false });
+  });
+
+  // RTs: número da RT nas observações
+  var rtPor = {};
+  linhas.forEach(function (l) { if (l.rt) rtPor[l.rt] = l; });
+  rts.forEach(function (r) {
+    var l = rtPor[plhTxt_(r.rt).replace(/\.0$/, '')];
+    if (l) { l.usada = true; r.plancor = 'insumo ' + (l.r.ref || 'linha ' + l.r.linha) + (l.r.ini ? ', ' + dBR(l.r.ini) : ''); res.rtsNoPlancor++; }
+  });
+
+  // Jaquetas: "Jaqueta PAT-3" + "N2 SUBMERSA" nas observações (linhas sem nível/zona, como ACFM ou
+  // medição de potencial, não identificam o nível). Cada nível fica com a linha mais próxima da próxima inspeção.
+  var jaqLinhas = [];
+  linhas.forEach(function (l) {
+    if (!l.jaqueta) return;
+    var m = l.r.duto.match(/jaqueta\s+([A-Z]+\s*-?\s*\d+)/i) || l.r.obs.match(/jaqueta\s+(?:da\s+)?([A-Z]+\s*-?\s*\d+)/i);
+    var o = l.r.obs.toUpperCase();
+    var zn = o.match(/\bN([123])\s+(SUBMERSA|EMERSA)/);
+    l.usada = true; // linha de jaqueta nunca vale para duto
+    if (!m || !zn) return;
+    jaqLinhas.push({ l: l, plat: plhPlataforma_(m[1]), nivel: 'n' + zn[1] + ' ' + zn[2].toLowerCase() });
+  });
+  jaquetas.forEach(function (j) {
+    var alvo = j.prox ? new Date(j.prox + 'T00:00:00').getTime() : hoje.getTime();
+    var melhor = null;
+    jaqLinhas.forEach(function (c) {
+      if (c.usada || c.plat !== j.plat || plhNorm_(j.nivel) !== c.nivel) return;
+      var d = c.l.r.ini ? Math.abs(c.l.r.ini.getTime() - alvo) : 1e15;
+      if (!melhor || d < melhor.d) melhor = { c: c, d: d };
+    });
+    if (melhor) {
+      melhor.c.usada = true; res.jaqNoPlancor++;
+      j.plancor = 'insumo ' + (melhor.c.l.r.ref || 'linha ' + melhor.c.l.r.linha) + (melhor.c.l.r.ini ? ', ' + dBR(melhor.c.l.r.ini) : '');
+    } else if (res.carregado && /submersa/i.test(j.nivel) && j.plano && j.dias !== null && j.dias <= 365) {
+      j.foraPlancor = true; // submersa (precisa de embarcação) vencendo em até 12 meses e fora do PLANCOR
+    }
+  });
+
+  var procOk = function (dProc, lProc, exato) {
+    if (!lProc) return false;
+    var a = plhNorm_(dProc), b = plhNorm_(lProc);
+    return exato ? a === b : (a === b || a.indexOf(b + '-') === 0);
+  };
+  var camposDem = function (x) {
+    var c = {};
+    (x.locais || []).concat([x.plat]).forEach(function (p) { var k = plhCampo_(p); if (k) c[k] = true; });
+    return c;
+  };
+  var distancia = function (x, l) {
+    if (!l.r.ini || !x.prazo) return null;
+    var d = (l.r.ini.getTime() - new Date(x.prazo + 'T00:00:00').getTime()) / 86400000;
+    if (d < -PLH_PLANCOR_JANELA_ANTES || d > PLH_PLANCOR_JANELA_DEPOIS) return null;
+    return Math.abs(d);
+  };
+  // pareamento guloso: menor distância de data primeiro, cada linha serve uma demanda só
+  var parear = function (lista, pode) {
+    var pares = [];
+    demandas.forEach(function (x, ix) {
+      if (x.plancor) return;
+      lista.forEach(function (l, il) {
+        if (l.usada || !pode(x, l)) return;
+        var d = distancia(x, l);
+        if (d !== null) pares.push({ x: x, l: l, d: d });
+      });
+    });
+    pares.sort(function (a, b) { return a.d - b.d; });
+    pares.forEach(function (p) {
+      if (p.x.plancor || p.l.usada) return;
+      p.l.usada = true; p.x._plancorLinha = p.l; p.x.plancor = lista === identificadas ? 'ok' : 'prov';
+    });
+  };
+
+  demandas.forEach(function (x) { if (PLH_PLANCOR_NA.test(x.proc)) x.plancor = 'na'; });
+  if (res.carregado) {
+    var identificadas = linhas.filter(function (l) { return l.objeto && !l.jaqueta && !l.rt && l.proc; });
+    var genericas = linhas.filter(function (l) { return !l.objeto && !l.anm && !l.jaqueta && !l.rt && l.proc; });
+    var ladoOk = function (x, l) { return !l.lado || l.lado === x.plat || (x.locais || []).indexOf(l.lado) >= 0; };
+    [true, false].forEach(function (exato) {
+      parear(identificadas, function (x, l) {
+        return plhNorm_(l.objeto) === plhNorm_(x.objeto) && procOk(x.proc, l.proc, exato) && ladoOk(x, l);
+      });
+    });
+    linhas.forEach(function (l) {
+      if (!l.anm || !l.proc) return;
+      demandas.forEach(function (x) {
+        if (x.plancor || !procOk(x.proc, l.proc, true) || !l.anm.test(String(x.objeto).toUpperCase())) return;
+        if (distancia(x, l) === null) return;
+        x.plancor = 'ok'; x._plancorLinha = l; l.usada = true;
+      });
+    });
+    [true, false].forEach(function (exato) {
+      parear(genericas, function (x, l) { return camposDem(x)[l.campo] && procOk(x.proc, l.proc, exato); });
+    });
+    // no PLANCOR, mas sem demanda no GIDES perto da data (procura em todo o planejamento, não só no horizonte do fluxo)
+    var limite = new Date(hoje.getTime() + PLH_FLUXO_HORIZONTE * 86400000);
+    identificadas.forEach(function (l) {
+      if (l.usada || !l.r.ini || l.r.ini > limite) return;
+      var temPlan = plan.some(function (p) {
+        return plhNorm_(p.objeto) === plhNorm_(l.objeto) && procOk(p.proc, l.proc, false) && distancia({ prazo: p.prox }, l) !== null;
+      });
+      if (!temPlan) res.semDemanda.push({ objeto: l.objeto, proc: l.proc, lado: l.lado, ini: plhIso_(l.r.ini), ref: l.r.ref, obs: plhCorta_(l.r.obs, 120) });
+    });
+  }
+
+  demandas.forEach(function (x) {
+    var l = x._plancorLinha; delete x._plancorLinha;
+    if (!res.carregado && x.plancor !== 'na') { x.plancor = ''; x.etapas[1] = etapa('sem', 'Aba SRC_PLANCOR ainda sem dados'); return; }
+    if (!x.plancor) x.plancor = 'nao';
+    res[x.plancor]++;
+    var onde = l ? ' · insumo ' + (l.r.ref || 'linha ' + l.r.linha) + (l.r.ini ? ' · início ' + dBR(l.r.ini) : '') + ' · ' + l.r.tarefa : '';
+    if (x.plancor === 'ok') x.etapas[1] = etapa('ok', 'No PLANCOR' + onde);
+    else if (x.plancor === 'prov') x.etapas[1] = etapa('prov', 'Provável: linha genérica do campo ' + l.campo + ' com ' + l.proc + onde);
+    else if (x.plancor === 'na') x.etapas[1] = etapa('na', 'Inspeção emersa: não vai para o PLANCOR');
+    else {
+      x.etapas[1] = etapa('alerta', 'Não encontrada no PLANCOR');
+      x.alertaPlancor = true;
+    }
+  });
+  return res;
 }
 
 
