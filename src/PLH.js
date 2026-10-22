@@ -134,6 +134,8 @@ function plhPlataforma_(x) {
 }
 
 function plhNulo_(v) { var t = plhTxt_(v); return /^null$/i.test(t) ? '' : t.replace(/\.0$/, ''); }
+/** número vindo do CIDR: célula numérica direto; texto em formato brasileiro ("3031,398") pelo plhNum_ */
+function plhNumC_(v) { if (typeof v === 'number') return v; var t = plhNulo_(v); return t ? plhNum_(t) : null; }
 function plhAno_(v) { var n = plhNum_(plhNulo_(v)); return n && n > 1900 && n < 2100 ? Math.round(n) : null; }
 /** 'OL 12" PAT-2/PXA-3' → 12 */
 function plhDiametro_(nome) { var m = plhTxt_(nome).match(/(\d+(?:[.,]\d+)?)\s*"/); return m ? plhNum_(m[1]) : null; }
@@ -262,6 +264,67 @@ function plhLerICPI_(ss) {
   info.linhas = rows.length;
   if (cerquilhas) info.aviso = cerquilhas + ' linha(s) com ##### em Venc. Mín./OS: no Excel, alargue as colunas (Ctrl+A e duplo clique na divisa entre colunas) antes de copiar';
   return { info: info, rows: rows };
+}
+
+/** SRC_Componentes (CIDR, aba de componentes; opcional): todos os componentes de cada duto,
+ *  inclusive os sem planejamento. Lido pelo nome do cabeçalho (o export pode mudar de ordem).
+ *  O código BDIEP é reconhecido pelo conteúdo (OBJBDIEP:nnn): o que for de duto vira o duto, o resto é o componente. */
+var PLH_ABA_COMPCIDR = 'SRC_Componentes';
+function plhLerCompCIDR_(ss, objetos) {
+  var props = PropertiesService.getDocumentProperties();
+  var info = { base: 'Componentes', sistema: 'CIDR', aba: PLH_ABA_COMPCIDR, linhas: 0, ok: false, erro: '', opcional: true,
+               atualizado: props.getProperty('PLH_ATUALIZADO_' + PLH_ABA_COMPCIDR) || '' };
+  var res = { info: info, porDuto: {}, total: 0, semDuto: 0 };
+  var sh = ss.getSheetByName(PLH_ABA_COMPCIDR);
+  if (!sh) { info.erro = 'Aba não encontrada (opcional)'; return res; }
+  info.gid = sh.getSheetId();
+  var vals = sh.getDataRange().getValues();
+  var h = -1;
+  for (var i = 0; i < Math.min(vals.length, 20); i++) {
+    if (vals[i].map(plhNorm_).some(function (c) { return /^extensao/.test(c); })) { h = i; break; }
+  }
+  if (h < 0) { info.erro = vals.length > 1 ? 'Cabeçalho não encontrado (coluna Extensão)' : 'Aba vazia (opcional): cole o export de componentes do CIDR'; return res; }
+  var cab = vals[h].map(plhNorm_);
+  var achar = function (re, nao) {
+    for (var k = 0; k < cab.length; k++) if (re.test(cab[k]) && !(nao && nao.test(cab[k]))) return k;
+    return -1;
+  };
+  var ix = {
+    duto: achar(/^(nome|interligacao|nome da interligacao|nome do duto|duto|objeto)$/),
+    comp: achar(/componente/, /tipo|bdiep|codigo/),
+    tipo: achar(/tipo/),
+    ext: achar(/^extensao/), esp: achar(/espessura/), vida: achar(/vida util/), dn: achar(/diametro nominal/),
+    anp: achar(/escopo anp/), sit: achar(/^situacao/), local: achar(/local de instalacao/),
+    resp: achar(/inst\. resp|instalacao resp/), orig: achar(/origem/), dest: achar(/destino/)
+  };
+  var idObj = {}, idPorNome = {};
+  objetos.forEach(function (o) { idObj[o.id] = o; idPorNome[plhNorm_(o.nome)] = o.id; });
+  var g = function (r, k) { return ix[k] < 0 ? '' : r[ix[k]]; };
+  for (var j = h + 1; j < vals.length; j++) {
+    var r = vals[j];
+    if (!r.some(function (v) { return plhTxt_(v) !== ''; })) continue;
+    var ids = [];
+    r.forEach(function (v) { var m = plhTxt_(v).match(/OBJBDIEP:\s*\d+/i); if (m) ids.push(m[0].toUpperCase().replace(/\s/g, '')); });
+    var dutoId = ids.filter(function (x) { return idObj[x]; })[0] || idPorNome[plhNorm_(g(r, 'duto'))] || '';
+    var compNome = plhTxt_(g(r, 'comp'));
+    var compId = ids.filter(function (x) { return x !== dutoId; })[0] || '';
+    if (!compId) { var b = compNome.match(/\[(\d+)\]/); if (b) compId = 'OBJBDIEP:' + b[1]; }
+    var tipo = plhTxt_(g(r, 'tipo')) || compNome.split('[')[0].trim();
+    var c = { id: compId, nome: compNome || (tipo + (compId ? ' [' + compId.split(':')[1] + ']' : '')), tipo: tipo,
+              ext: plhNumC_(g(r, 'ext')), esp: plhNumC_(g(r, 'esp')), vida: plhNumC_(g(r, 'vida')),
+              dn: plhNumC_(g(r, 'dn')), anp: plhNulo_(g(r, 'anp')), situacao: plhNulo_(g(r, 'sit')),
+              local: plhEhPlataforma_(g(r, 'local')) ? plhPlataforma_(g(r, 'local')) : '' };
+    res.total++;
+    if (!dutoId) { res.semDuto++; continue; }
+    (res.porDuto[dutoId] = res.porDuto[dutoId] || []).push(c);
+  }
+  info.ok = true;
+  info.linhas = res.total;
+  if (res.total && res.semDuto === res.total) info.aviso = 'Nenhuma linha ligada a um duto: inclua a coluna com o nome ou o código BDIEP do duto';
+  else if (res.semDuto) info.aviso = res.semDuto + ' linha(s) sem duto identificado';
+  if (res.total && ix.comp < 0 && !Object.keys(res.porDuto).some(function (k) { return res.porDuto[k].some(function (c) { return c.id; }); }))
+    info.aviso = (info.aviso ? info.aviso + '; ' : '') + 'sem código BDIEP do componente: não dá para ligar ao planejamento';
+  return res;
 }
 
 /** SRC_PLANCOR (opcional): planilha de insumos da última implantação, colada como está.
@@ -542,7 +605,8 @@ function getPlhData() {
   var plancorRes = plhLigarPlancor_(plancor, fluxo, rts, jaquetas, nomesObj, plan, hoje);
   if (plancor.info.ok) plancor.info.linhas = plancorRes.suas + ' suas (de ' + plancorRes.linhas + ')';
   var icpiPainel = plhMontarIcpi_(ss, icpi.rows, fluxo, hoje);
-  var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows);
+  var compCIDR = plhLerCompCIDR_(ss, objetos);
+  var matriz = plhMontarMatriz_(ss, plan, objetos, icpi.rows, compCIDR);
 
   /* --- Pendências (lista de trabalho única) --- */
   var pend = [];
@@ -634,8 +698,9 @@ function getPlhData() {
 
   fontes.push(icpi.info);
   fontes.push(plancor.info);
+  fontes.push(compCIDR.info);
   fontes.forEach(function (f) {
-    if (f.base === 'ICPI (OS)' || f.base === 'PLANCOR') return;
+    if (f.base === 'ICPI (OS)' || f.base === 'PLANCOR' || f.base === 'Componentes') return;
     f.linhas = f.base === 'RT' ? rtTotal : f.base === 'Planejamento' ? plan.length
       : f.base === 'Historico' ? src.Historico.length : f.base === 'Interligacoes' ? src.Interligacoes.length
       : jq.rows.length;
@@ -1256,7 +1321,7 @@ function plhPeriodo_(txt) {
   return { meses: n, dias: null, txt: plhTxt_(txt) };
 }
 
-function plhMontarMatriz_(ss, plan, objetos, icpiRows) {
+function plhMontarMatriz_(ss, plan, objetos, icpiRows, compCIDR) {
   var regras = plhLerRegras_(ss);
   var objPorId = {};
   objetos.forEach(function (o) { objPorId[o.id] = o; });
@@ -1363,7 +1428,8 @@ function plhMontarMatriz_(ss, plan, objetos, icpiRows) {
   });
 
   var comps = plhLerComponentes_(ss);
-  ordem.forEach(function (k) { linhas[k].esq = plhEsqueleto_(linhas[k], objPorId[linhas[k].objId], comps); });
+  var porDuto = (compCIDR && compCIDR.porDuto) || {};
+  ordem.forEach(function (k) { linhas[k].esq = plhEsqueleto_(linhas[k], objPorId[linhas[k].objId], comps, porDuto[linhas[k].objId] || []); });
   plhGravarComponentes_(comps, ordem.map(function (k) { return linhas[k]; }));
 
   var resumo = { objetos: 0, semPlano: 0, posicao: 0, lados: 0, faltando: 0, foraPadrao: 0, divergente: 0, emDias: 0, valeProximo: 0, vencidas: 0, semRegra: 0 };
@@ -1429,7 +1495,7 @@ var PLH_ABA_COMP = 'PLH_Componentes';
 var PLH_COMP_COLS = ['Componente BDIEP', 'Duto', 'Componente', 'Tipo', 'Extensão (m)', 'Procedimentos',
                      'Posição (automática)', 'Lado (automático)', 'Posição (corrigir)', 'Lado (corrigir)', 'Motivo / observação'];
 var PLH_COMP_LIMITE_PADRAO = 15;
-var PLH_POS_ROTULO = { emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre' };
+var PLH_POS_ROTULO = { emerso: 'Riser emerso', submerso: 'Riser submerso', leito: 'Leito', riser: 'Riser', equip: 'Equipamento', terra: 'Trecho terrestre', outro: 'Outro componente' };
 var PLH_POS_ESPERADO = {
   rigido: { emerso: { base: ['PIDR-4'], subst: [] }, submerso: { base: ['PIDR-3'], subst: ['PIDR-8'] }, leito: { base: ['PIDR-1'], subst: ['PIDR-8'] } },
   flexivel: { riser: { base: ['PIDF-4', 'PIDF-3'], subst: ['PIDF-1'] }, leito: { base: ['PIDF-1'], subst: [] } }
@@ -1483,8 +1549,19 @@ function plhPosicaoDe_(t) {
 
 function plhEhPlataforma_(x) { return /^P[A-Z]{1,4}\d{2}[A-Z]?$/.test(plhPlataforma_(x)); }
 
-function plhEsqueleto_(l, obj, comps) {
+function plhEsqueleto_(l, obj, comps, cidr) {
   var lista = Object.keys(l.comps).map(function (k) { return l.comps[k]; });
+  // componentes do cadastro do CIDR: completam os dados dos que têm plano e entram os que não têm
+  var cidrPor = {};
+  (cidr || []).forEach(function (c) { if (c.id) cidrPor[c.id] = c; });
+  var comPlano = {};
+  lista.forEach(function (c) { if (c.compId) comPlano[c.compId] = true; });
+  (cidr || []).forEach(function (c, i) {
+    if (c.id && comPlano[c.id]) return;
+    lista.push({ chave: c.id || ('CIDR' + i + '|' + (l.objId || l.objeto)), compId: c.id, comp: c.nome, tipo: c.tipo, ext: c.ext,
+                 local: c.local, procs: {}, itens: [], ladosICPI: {}, semPlano: true,
+                 foraANP: /^n/i.test(c.anp || ''), situacao: c.situacao });
+  });
   if (!lista.length) return null;
   var tipoTxt = lista.map(function (c) { return plhNorm_(c.tipo); }).join(' ');
   var mat = /rigido/.test(tipoTxt) ? 'rigido' : /flexivel/.test(tipoTxt) ? 'flexivel' : null;
@@ -1498,6 +1575,7 @@ function plhEsqueleto_(l, obj, comps) {
     var t = plhNorm_(c.tipo), auto = '';
     var nomesP = Object.keys(c.procs);
     if (nomesP.length && nomesP.every(function (x) { return /^(FAIXA|EXT_)/.test(x); })) auto = 'terra';
+    else if (c.semPlano && !/riser|trecho|flow/.test(t)) auto = /anm|plem|j-tube/.test(t) ? 'equip' : 'outro';
     else if (/trecho|flow/.test(t)) auto = 'leito';
     else if (/riser rigido/.test(t)) {
       // o procedimento decide; a extensão só desempata
@@ -1511,7 +1589,7 @@ function plhEsqueleto_(l, obj, comps) {
     var ladoAuto = c.local || (ladosAuto.length === 1 ? ladosAuto[0] : '');
     var corr = comps.porId[c.chave] || {};
     var pos = corr.pos || auto, lado = corr.lado || ladoAuto;
-    if (pos === 'leito' || pos === 'equip' || pos === 'terra') lado = corr.lado || '';
+    if (pos === 'leito' || pos === 'equip' || pos === 'terra' || pos === 'outro') lado = corr.lado || '';
     // lado sobrando: duto com só uma plataforma nas pontas
     if (!lado && (pos === 'emerso' || pos === 'submerso' || pos === 'riser') && pontas.length === 1) lado = pontas[0];
     var esp = esperado[pos];
@@ -1525,11 +1603,16 @@ function plhEsqueleto_(l, obj, comps) {
       else if (pos === 'riser' && c.procs['PIDF-4'] && temSubst.length) { estado = 'substitui'; subst = temSubst[0] + ' no lugar da PIDF-3'; }
       else estado = 'falta';
     }
+    if (c.semPlano) estado = c.foraANP ? 'foraanp' : 'semplano';
+    if (c.semPlano && c.foraANP && (pos === 'emerso' || pos === 'submerso' || pos === 'riser' || pos === 'leito')) pos = 'outro';
+    var dc = cidrPor[c.compId] || {};
     out.push({
       chave: c.chave, compId: c.compId, comp: c.comp, tipo: c.tipo, ext: c.ext === undefined ? null : c.ext,
       pos: pos, posAuto: auto, posManual: !!corr.pos, lado: lado, ladoAuto: ladoAuto, ladoManual: !!corr.lado,
       ladoDuvida: !c.local && ladosAuto.length > 1 ? ladosAuto.join('/') : '',
-      motivo: corr.motivo || '', procs: nomes.sort(), estado: estado, subst: subst,
+      motivo: corr.motivo || '', procs: nomes.sort(), estado: estado, subst: subst, semPlano: !!c.semPlano,
+      esp: dc.esp === undefined ? null : dc.esp, dn: dc.dn === undefined ? null : dc.dn, vida: dc.vida === undefined ? null : dc.vida,
+      anp: dc.anp || '', sitComp: dc.situacao || c.situacao || '',
       esperado: esp ? esp.base.join(' + ') : '',
       itens: c.itens.map(function (i) { return { proc: i.proc, per: i.per, ult: i.ult, prox: i.prox, dias: i.dias, status: i.status, vale: i.vale, planej: i.planej }; })
     });
@@ -1553,6 +1636,10 @@ function plhEsqueleto_(l, obj, comps) {
     var semLado = out.filter(function (c) { return c.pos === pos && !c.lado; });
     var vazios = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
     if (semLado.length === 1 && vazios.length === 1) { semLado[0].lado = vazios[0].lado; semLado[0].ladoDeduzido = true; }
+    // componentes sem plano (do CIDR) completam as posições vazias quando a quantidade bate
+    var semLadoSP = out.filter(function (c) { return c.pos === pos && !c.lado && c.semPlano; });
+    var vaz2 = slots.filter(function (sl) { return sl.pos === pos && !out.some(function (c) { return noSlot(c, sl); }); });
+    if (semLadoSP.length === 1 && vaz2.length === 1) { semLadoSP[0].lado = vaz2[0].lado; semLadoSP[0].ladoDeduzido = true; }
   });
   var posicoes = [], alertas = [];
   slots.forEach(function (sl) {
@@ -1561,17 +1648,20 @@ function plhEsqueleto_(l, obj, comps) {
               esperado: esperado[sl.pos] ? esperado[sl.pos].base.join(' + ') : '' };
     if (!cs.length) {
       p.vazio = true;
-      if (!(mat === 'flexivel' && sl.pos === 'leito')) alertas.push(p.rotulo + ': nenhum componente com planejamento (esperado ' + p.esperado + ')');
+      if (!(mat === 'flexivel' && sl.pos === 'leito')) alertas.push(p.rotulo + ': nenhum componente ' + ((cidr || []).length ? 'no CIDR nem no planejamento' : 'com planejamento') + ' (esperado ' + p.esperado + ')');
     }
-    cs.forEach(function (c) { if (c.estado === 'falta') alertas.push(p.rotulo + ' (' + c.comp + '): sem ' + c.esperado); });
-    if (cs.length > 1 && sl.pos !== 'leito') alertas.push(p.rotulo + ': ' + cs.length + ' componentes na mesma posição');
+    cs.forEach(function (c) {
+      if (c.estado === 'falta') alertas.push(p.rotulo + ' (' + c.comp + '): sem ' + c.esperado);
+      if (c.estado === 'semplano') alertas.push(p.rotulo + ' (' + c.comp + (c.ext ? ', ' + c.ext + ' m' : '') + '): sem planejamento, esperado ' + c.esperado);
+    });
+    if (cs.filter(function (c) { return !c.semPlano; }).length > 1 && sl.pos !== 'leito') alertas.push(p.rotulo + ': ' + cs.length + ' componentes na mesma posição');
     posicoes.push(p);
   });
   var usados = {};
   posicoes.forEach(function (p) { p.comps.forEach(function (c) { usados[c.chave] = true; }); });
   var fora = out.filter(function (c) { return !usados[c.chave]; });
   fora.forEach(function (c) {
-    if (c.pos === 'equip' || c.pos === 'terra') return;
+    if (c.pos === 'equip' || c.pos === 'terra' || c.pos === 'outro') return;
     alertas.push(c.comp + ': ' + PLH_POS_ROTULO[c.pos] + (c.lado ? ' lado ' + c.lado + ' (não é ponta do duto no CIDR)' : ' sem lado identificado') + ': informe na aba PLH_Componentes');
   });
   return { mat: mat, pontas: pontas, posicoes: posicoes, fora: fora, alertas: alertas, comps: out };
@@ -1584,7 +1674,7 @@ function plhGravarComponentes_(comps, linhas) {
   linhas.forEach(function (l) {
     if (!l.esq) return;
     l.esq.comps.forEach(function (c) {
-      if (!c.chave || comps.porId[c.chave]) return;
+      if (!c.chave || comps.porId[c.chave] || /^CIDR\d/.test(c.chave)) return;
       comps.porId[c.chave] = { existe: true };
       novas.push([c.chave, l.objeto, c.comp, c.tipo, c.ext === null ? '' : c.ext, c.procs.join(', '),
                   PLH_POS_ROTULO[c.posAuto] || '', c.ladoAuto || '', '', '', '']);
