@@ -6,6 +6,11 @@ on:
     paths: ['src/**', '.clasp.json']
   workflow_dispatch:
 
+# Um envio por vez; se chegar outro enquanto um roda, só o mais novo espera (evita código antigo sobrescrever o novo)
+concurrency:
+  group: deploy-apps-script
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
